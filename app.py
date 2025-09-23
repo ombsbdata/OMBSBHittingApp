@@ -12,7 +12,7 @@ data = pd.read_csv(file_path, low_memory=False)
 data = data[data['BatterTeam'] == 'OLE_REB']
 
 # Load the Ole Miss logo
-logo_path = 'OMBaseballLogo.jpeg'
+logo_path = 'OMBSB_Analytics_logo-removebg-preview.png'
 logo_img = mpimg.imread(logo_path)
 
 # Standardize AutoPitchType values to ensure consistency
