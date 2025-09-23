@@ -386,7 +386,7 @@ if not print_mode:
     st.markdown("### Batted Ball Locations")
 
 # Adjust batted ball graphic size for print mode
-bb_fig_size = (8, 8) if print_mode else (6, 6)
+bb_fig_size = (20,20) if print_mode else (6, 6)
 bb_title_fontsize = 12 if print_mode else 12
 bb_legend_fontsize = 8 if print_mode else 8
 
