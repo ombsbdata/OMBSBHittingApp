@@ -388,7 +388,7 @@ if not print_mode:
 # Adjust batted ball graphic size for print mode
 bb_fig_size = (12, 12) if print_mode else (6, 6)
 bb_title_fontsize = 20 if print_mode else 16
-bb_legend_fontsize = 14 if print_mode else 10
+bb_legend_fontsize = 10 if print_mode else 10
 
 fig, ax = plt.subplots(figsize=bb_fig_size)
 
