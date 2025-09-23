@@ -88,9 +88,23 @@ pitch_call_palette = {
     'InPlay': 'blue',
     'FoulBallNotFieldable': 'tan',
     'StrikeSwinging': 'red',
-    'BallIntentional': 'purple',
+    'BallIntentional': 'green',  # Changed to green to match other balls
     'FoulBallFieldable': 'tan',
     'HitByPitch': 'lime'
+}
+
+# Define condensed legend labels for pitch calls
+pitch_call_legend_labels = {
+    'StrikeCalled': 'Strike Called',
+    'BallCalled': 'Ball',
+    'BallinDirt': 'Ball',
+    'Foul': 'Foul',
+    'InPlay': 'In Play',
+    'FoulBallNotFieldable': 'Foul',
+    'StrikeSwinging': 'Strike Swinging',
+    'BallIntentional': 'Ball',
+    'FoulBallFieldable': 'Foul',
+    'HitByPitch': 'Hit By Pitch'
 }
 
 # Define marker styles for AutoPitchType
@@ -156,13 +170,13 @@ if not filtered_data.empty:
     # Create the figure with adjusted size
     fig = plt.figure(figsize=(fig_width, fig_height))
     
-    # Adjust GridSpec for better space utilization
-    gs = GridSpec(3, 5, figure=fig, 
-                  width_ratios=[1.5, 1.5, 1.5, 1, 1.5], 
+    # Adjust GridSpec for better space utilization (no need for legend space now)
+    gs = GridSpec(3, 4, figure=fig, 
+                  width_ratios=[1.5, 1.5, 1.5, 1.2], 
                   height_ratios=[1, 1, 1])
     gs.update(wspace=0.25, hspace=0.35)
 
-    # Create small plots in the left half using GridSpec
+    # Create small plots in the left three columns using GridSpec
     axes = []
     for i in range(min(num_pa, 9)):
         ax = fig.add_subplot(gs[i // 3, i % 3])
@@ -258,25 +272,39 @@ if not filtered_data.empty:
         table_data.append([f'PA {i}', '', ''])
         table_data.extend(pa_rows)
 
-    # Add legends with adjusted positioning and sizing
-    legend_ax = fig.add_subplot(gs[2, :2])
-    legend_ax.axis('off')
-
-    legend_fontsize = 12 if print_mode else 10
-    legend_title_fontsize = 14 if print_mode else 12
+    # Create consolidated legend entries (remove duplicates and use condensed labels)
+    unique_pitch_calls = {}
+    for pitch_call, color in pitch_call_palette.items():
+        legend_label = pitch_call_legend_labels.get(pitch_call, pitch_call)
+        if legend_label not in unique_pitch_calls:
+            unique_pitch_calls[legend_label] = color
+    
+    # Add horizontal legends at the bottom of the figure
+    legend_fontsize = 12 if print_mode else 9
+    legend_title_fontsize = 14 if print_mode else 11
     legend_markersize = 8 if print_mode else 6
 
+    # Create pitch call legend (colors)
     handles1 = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=legend_markersize, linestyle='', label=label)
-                for label, color in pitch_call_palette.items()]
-    legend1 = legend_ax.legend(handles=handles1, title='Pitch Call', loc='lower left', bbox_to_anchor=(1, -0.3), 
-                              fontsize=legend_fontsize, title_fontsize=legend_title_fontsize)
-
+                for label, color in unique_pitch_calls.items()]
+    
+    # Create pitch type legend (shapes)
     handles2 = [plt.Line2D([0], [0], marker=marker, color='black', markersize=legend_markersize, linestyle='', label=label)
                 for label, marker in pitch_type_markers.items()]
-    legend2 = legend_ax.legend(handles=handles2, title='Pitch Type', loc='lower left', bbox_to_anchor=(0.6, -0.3), 
-                              fontsize=legend_fontsize, title_fontsize=legend_title_fontsize)
 
-    legend_ax.add_artist(legend1)
+    # Position legends horizontally at bottom of figure
+    legend1 = fig.legend(handles=handles1, title='Pitch Call (Colors)', 
+                        loc='lower center', bbox_to_anchor=(0.5, 0.02), 
+                        ncol=len(unique_pitch_calls), fontsize=legend_fontsize, 
+                        title_fontsize=legend_title_fontsize, frameon=False)
+    
+    legend2 = fig.legend(handles=handles2, title='Pitch Type (Shapes)', 
+                        loc='lower center', bbox_to_anchor=(0.5, -0.05), 
+                        ncol=len(pitch_type_markers), fontsize=legend_fontsize, 
+                        title_fontsize=legend_title_fontsize, frameon=False)
+
+    # Adjust the bottom margin to accommodate legends
+    fig.subplots_adjust(bottom=0.15)
 
     # Add the pitch-by-pitch table
     ax_table = fig.add_subplot(gs[:, 3:])
