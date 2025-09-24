@@ -390,7 +390,7 @@ with tab1:
         st.markdown("### Batted Ball Locations")
 
     # Adjust batted ball graphic size for print mode
-    bb_fig_size = (6, 6) if print_mode else (6, 6)  # Reduced from (10, 10) to (7, 7) for print
+    bb_fig_size = (4, 4) if print_mode else (6, 6)  # Reduced from (10, 10) to (7, 7) for print
     bb_title_fontsize = 16 if print_mode else 16  # Slightly reduced title size
     bb_legend_fontsize = 8 if print_mode else 10
 
