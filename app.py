@@ -116,7 +116,7 @@ pitch_type_markers = {
 }
 
 # Streamlit app setup
-st.title("Hitting Summary Viewer")
+st.title("OMBSB Hitting App")
 
 # Create tabs
 tab1, tab2 = st.tabs(["Post-Game Summary", "Hitter Profile"])
