@@ -156,8 +156,8 @@ with tab1:
 
     # Generate plot for selected batter
     if not filtered_data.empty:
-    plate_appearance_groups = filtered_data.groupby((filtered_data['PitchofPA'] == 1).cumsum())
-    num_pa = len(plate_appearance_groups)
+        plate_appearance_groups = filtered_data.groupby((filtered_data['PitchofPA'] == 1).cumsum())
+        num_pa = len(plate_appearance_groups)
 
     # Adjust figure size based on print mode
     if print_mode:
