@@ -118,40 +118,44 @@ pitch_type_markers = {
 # Streamlit app setup
 st.title("Hitting Summary Viewer")
 
-# Create columns for better layout control
-col1, col2, col3 = st.columns([2, 2, 1])
+# Create tabs
+tab1, tab2 = st.tabs(["Post-Game Summary", "Hitter Profile"])
 
-# Get unique dates for selection
-unique_dates = sorted(data['Date'].unique()) if 'Date' in data.columns else []
+with tab1:
+    # Create columns for better layout control
+    col1, col2, col3 = st.columns([2, 2, 1])
 
-# Automatically select the most recent date upon app launch
-with col1:
-    if unique_dates:
-        default_date = max(unique_dates)  # Most recent date
-        selected_date = st.selectbox("Select a Date", options=unique_dates, index=unique_dates.index(default_date))
-    else:
-        selected_date = None
+    # Get unique dates for selection
+    unique_dates = sorted(data['Date'].unique()) if 'Date' in data.columns else []
 
-# Filter the data based on the selected date first
-filtered_data = data[data['Date'] == selected_date] if selected_date else data
+    # Automatically select the most recent date upon app launch
+    with col1:
+        if unique_dates:
+            default_date = max(unique_dates)  # Most recent date
+            selected_date = st.selectbox("Select a Date", options=unique_dates, index=unique_dates.index(default_date))
+        else:
+            selected_date = None
 
-# Get unique batters from the **filtered** data
-unique_batters = sorted(filtered_data['Batter'].unique()) if not filtered_data.empty else []
+    # Filter the data based on the selected date first
+    filtered_data = data[data['Date'] == selected_date] if selected_date else data
 
-# Create batter selection dropdown with only available batters
-with col2:
-    selected_batter = st.selectbox("Select a Batter", options=unique_batters)
+    # Get unique batters from the **filtered** data
+    unique_batters = sorted(filtered_data['Batter'].unique()) if not filtered_data.empty else []
 
-# Add print mode toggle
-with col3:
-    print_mode = st.checkbox("Print Mode", help="Optimizes layout for printing")
+    # Create batter selection dropdown with only available batters
+    with col2:
+        selected_batter = st.selectbox("Select a Batter", options=unique_batters)
 
-# Filter data further based on selected batter
-if selected_batter:
-    filtered_data = filtered_data[filtered_data['Batter'] == selected_batter]
+    # Add print mode toggle
+    with col3:
+        print_mode = st.checkbox("Print Mode", help="Optimizes layout for printing")
 
-# Generate plot for selected batter
-if not filtered_data.empty:
+    # Filter data further based on selected batter
+    if selected_batter:
+        filtered_data = filtered_data[filtered_data['Batter'] == selected_batter]
+
+    # Generate plot for selected batter
+    if not filtered_data.empty:
     plate_appearance_groups = filtered_data.groupby((filtered_data['PitchofPA'] == 1).cumsum())
     num_pa = len(plate_appearance_groups)
 
@@ -386,9 +390,9 @@ if not print_mode:
     st.markdown("### Batted Ball Locations")
 
 # Adjust batted ball graphic size for print mode
-bb_fig_size = (4,4) if print_mode else (6, 6)
-bb_title_fontsize = 12 if print_mode else 12
-bb_legend_fontsize = 8 if print_mode else 8
+bb_fig_size = (7, 7) if print_mode else (6, 6)  # Reduced from (10, 10) to (7, 7) for print
+bb_title_fontsize = 18 if print_mode else 16  # Slightly reduced title size
+bb_legend_fontsize = 12 if print_mode else 10
 
 fig, ax = plt.subplots(figsize=bb_fig_size)
 
