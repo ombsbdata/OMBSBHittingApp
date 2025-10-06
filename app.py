@@ -700,7 +700,7 @@ with tab2:
                     league_note = "   (League file missing columns or empty with filters)"
         except Exception as e:
             st.warning(f"⚠️ Could not load SEC master via gdown: {e}")
-        )"
+
 
         fig_rv = plot_rv_bars(rv_tbl, totals, title=f"{sel_batter} – Run Value by Zone (Swing vs Take){league_note}")
         st.pyplot(fig_rv, use_container_width=True)
