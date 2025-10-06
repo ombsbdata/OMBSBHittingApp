@@ -633,7 +633,7 @@ with tab2:
         ax_rv = plt.subplot2grid((1, 20), (0, 14), colspan=6)
         
         # === PANEL 1: Zone Diagram (Larger, No Silhouette) ===
-        ax_zone.set_xlim(-2.0, 2.0)
+        ax_zone.set_xlim(-2.2, 2.2)
         ax_zone.set_ylim(0.5, 4.0)
         ax_zone.axis('off')
         ax_zone.set_aspect('equal')
@@ -647,35 +647,36 @@ with tab2:
         shadow_height = shadow_top - shadow_bottom
         
         zone_scale = 1.2  # Scale factor for larger display
+        zone_center_x = 0  # Everything centered at x=0
         
         # Waste zone (outermost, very light gray)
         waste_w, waste_h = 3.5, 2.8
-        waste_rect = FancyBboxPatch((-waste_w/2, 0.7), waste_w, waste_h,
+        waste_rect = FancyBboxPatch((zone_center_x - waste_w/2, 0.7), waste_w, waste_h,
                                     boxstyle="round,pad=0.08", 
                                     fc=zone_colors['Waste'], ec='#888', lw=2.5, alpha=0.6)
         ax_zone.add_patch(waste_rect)
         
         # Chase zone
         chase_w, chase_h = 2.8, 2.3
-        chase_rect = FancyBboxPatch((-chase_w/2, 0.9), chase_w, chase_h,
+        chase_rect = FancyBboxPatch((zone_center_x - chase_w/2, 0.9), chase_w, chase_h,
                                     boxstyle="round,pad=0.06", 
                                     fc=zone_colors['Chase'], ec='black', lw=2.5)
         ax_zone.add_patch(chase_rect)
         
         # Shadow zone
-        shadow_rect = Rectangle((-shadow_width/2 * zone_scale, rulebook_bottom - 0.1), 
+        shadow_rect = Rectangle((zone_center_x - shadow_width/2 * zone_scale, rulebook_bottom - 0.1), 
                                 shadow_width * zone_scale, shadow_height * zone_scale + 0.2,
                                 fc=zone_colors['Shadow'], ec='black', lw=3)
         ax_zone.add_patch(shadow_rect)
         
         # Strike zone outline (dashed)
-        sz_rect = Rectangle((-sz_width/2 * zone_scale, rulebook_bottom), 
+        sz_rect = Rectangle((zone_center_x - sz_width/2 * zone_scale, rulebook_bottom), 
                             sz_width * zone_scale, sz_height * zone_scale,
                             fc='none', ec='black', lw=3.5, linestyle='--')
         ax_zone.add_patch(sz_rect)
         
         # Heart zone
-        heart_x0 = -heart_width/2 * zone_scale
+        heart_x0 = zone_center_x - heart_width/2 * zone_scale
         heart_y0 = rulebook_bottom + (sz_height * 0.25) * zone_scale
         heart_rect = Rectangle((heart_x0, heart_y0), 
                                heart_width * zone_scale, heart_height * zone_scale,
@@ -688,41 +689,41 @@ with tab2:
         # Heart RV (center)
         heart_rv = rv_dict.get('Heart', 0)
         heart_center_y = heart_y0 + (heart_height * zone_scale) / 2
-        ax_zone.text(0, heart_center_y, f'{heart_rv:+.0f} Runs',
+        ax_zone.text(zone_center_x, heart_center_y, f'{heart_rv:+.0f} Runs',
                     fontsize=16, weight='bold', ha='center', va='center',
                     bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='black', lw=2))
         
         # Shadow RV (top of shadow zone)
         shadow_rv = rv_dict.get('Shadow', 0)
         shadow_center_y = rulebook_bottom + shadow_height * zone_scale * 0.85
-        ax_zone.text(0, shadow_center_y, f'{shadow_rv:+.0f} Runs',
+        ax_zone.text(zone_center_x, shadow_center_y, f'{shadow_rv:+.0f} Runs',
                     fontsize=14, weight='bold', ha='center', va='center',
                     bbox=dict(boxstyle='round,pad=0.4', fc='white', ec='black', lw=2))
         
         # Chase RV (bottom)
         chase_rv = rv_dict.get('Chase', 0)
-        ax_zone.text(0, 1.1, f'{chase_rv:+.0f} Runs',
+        ax_zone.text(zone_center_x, 1.1, f'{chase_rv:+.0f} Runs',
                     fontsize=14, weight='bold', ha='center', va='center',
                     bbox=dict(boxstyle='round,pad=0.4', fc='white', ec='black', lw=2))
         
         # Waste RV (left side)
         waste_rv = rv_dict.get('Waste', 0)
-        ax_zone.text(-1.4, 2.2, f'{waste_rv:+.0f} Runs',
+        ax_zone.text(zone_center_x - 1.5, 2.2, f'{waste_rv:+.0f} Runs',
                     fontsize=13, weight='bold', ha='center', va='center',
                     bbox=dict(boxstyle='round,pad=0.35', fc='white', ec='black', lw=1.5))
         
         # Zone labels
-        ax_zone.text(0, 3.75, 'Shadow', fontsize=12, weight='bold', ha='center',
+        ax_zone.text(zone_center_x, 3.75, 'Shadow', fontsize=12, weight='bold', ha='center',
                     style='italic', color='#333')
-        ax_zone.text(0, heart_y0 - 0.15, 'Heart', fontsize=12, weight='bold', ha='center',
+        ax_zone.text(zone_center_x, heart_y0 - 0.15, 'Heart', fontsize=12, weight='bold', ha='center',
                     style='italic', color='#8B0000')
-        ax_zone.text(0, 0.6, 'Chase', fontsize=11, weight='bold', ha='center',
+        ax_zone.text(zone_center_x, 0.6, 'Chase', fontsize=11, weight='bold', ha='center',
                     style='italic', color='#666')
-        ax_zone.text(-1.65, 3.5, 'Waste', fontsize=10, weight='bold', ha='center',
+        ax_zone.text(zone_center_x - 1.75, 3.5, 'Waste', fontsize=10, weight='bold', ha='center',
                     style='italic', color='#666')
         
         # "Strike Zone" label
-        ax_zone.text(0, rulebook_top * zone_scale + 0.15, 'Strike Zone', 
+        ax_zone.text(zone_center_x, rulebook_top * zone_scale + 0.15, 'Strike Zone', 
                     fontsize=10, ha='center', style='italic', color='#666')
         
         # === PANEL 2: Pitch Frequency ===
