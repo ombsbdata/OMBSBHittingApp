@@ -517,4 +517,180 @@ with tab1:
     st.pyplot(fig, use_container_width=True)
 
 with tab2:
-    st.write("Hitter Profile content coming soon...")
+    import os
+
+    st.subheader("Hitter Profile – Run Value by Zone (Swing vs Take)")
+
+    # --------------------------
+    # Helpers scoped to tab2
+    # --------------------------
+    def first_col(df, candidates):
+        for c in candidates:
+            if c in df.columns:
+                return c
+        return None
+
+    VELO_COL = first_col(data, ["RelSpeed", "ReleaseSpeed", "Velo", "PitchVelo"])
+    IVB_COL  = first_col(data, ["InducedVertBreak", "InducedVert", "IVB", "VertBreak", "iVB"])
+    HB_COL   = first_col(data, ["HorzBreak", "HorizontalBreak", "HB"])
+
+    def in_rect(x, y, x0, x1, y0, y1):
+        return (x >= x0) & (x <= x1) & (y >= y0) & (y <= y1)
+
+    def tag_zone_bucket(df):
+        x = df["PlateLocSide"].values
+        y = df["PlateLocHeight"].values
+
+        # inner 3x3 "heart" using your split grid
+        heart_x0, heart_x1 = x_splits[1], x_splits[2]
+        heart_y0, heart_y1 = y_splits[1], y_splits[2]
+        in_heart = in_rect(x, y, heart_x0, heart_x1, heart_y0, heart_y1)
+
+        # shadow (the bigger rectangle you draw)
+        in_shadow = in_rect(x, y, shadow_left, shadow_right, shadow_bottom, shadow_top)
+
+        # chase = outside shadow but still near the zone
+        in_chase = in_rect(x, y, -1.75, 1.75, 1.0, 4.0)
+
+        zone = np.full(len(df), "Waste", dtype=object)
+        zone[in_chase]  = "Chase"
+        zone[in_shadow] = "Shadow"
+        zone[in_heart]  = "Heart"   # overwrite to enforce priority
+        return pd.Series(zone, index=df.index, name="ZoneBucket")
+
+    SWING_CALLS = {"Foul", "InPlay", "StrikeSwinging", "FoulBallFieldable", "FoulBallNotFieldable"}
+
+    def add_flags(df):
+        out = df.copy()
+        out["ZoneBucket"] = tag_zone_bucket(out)
+        out["IsSwing"] = out["PitchCall"].isin(SWING_CALLS)
+        out["IsTake"]  = ~out["IsSwing"]
+        return out
+
+    def rv_by_zone(df):
+        zones = ["Heart", "Shadow", "Chase", "Waste"]
+        rows = []
+        for z in zones:
+            sub = df[df["ZoneBucket"] == z]
+            swings = sub[sub["IsSwing"]]
+            takes  = sub[sub["IsTake"]]
+            rows.append({
+                "Zone": z,
+                "Pitches": len(sub),
+                "Swing%": (len(swings) / len(sub)) if len(sub) else 0.0,
+                "RV_swing": swings["run_value"].sum(),
+                "RV_take":  takes["run_value"].sum()
+            })
+        out = pd.DataFrame(rows)
+        totals = {
+            "sw_total": df.loc[df["IsSwing"], "run_value"].sum(),
+            "tk_total": df.loc[df["IsTake"],  "run_value"].sum(),
+            "n": int(len(df))
+        }
+        return out, totals
+
+    def plot_rv_bars(rv_tbl, totals, title):
+        import matplotlib.pyplot as plt
+        zones = ["Heart", "Shadow", "Chase", "Waste"]
+        y = np.arange(len(zones))
+        swing = rv_tbl.set_index("Zone").loc[zones, "RV_swing"].values
+        take  = rv_tbl.set_index("Zone").loc[zones, "RV_take"].values
+
+        fig, ax = plt.subplots(figsize=(8.5, 5))
+        ax.axvline(0, color="#999", lw=1)
+        ax.barh(y+0.20, swing, height=0.36, color="#5DADE2", label="Swing RV")
+        ax.barh(y-0.20, take,  height=0.36, color="#D68910", label="Take RV")
+        ax.set_yticks(y); ax.set_yticklabels(zones, fontsize=11)
+        ax.set_xlabel("Runs", fontsize=11)
+        ax.set_title(title, fontsize=14, weight="bold")
+        ax.legend(frameon=False, ncols=2, loc="lower right")
+        cap = f"+{totals['sw_total']:.0f} Swing Runs   |   +{totals['tk_total']:.0f} Take Runs   |   {totals['n']} pitches"
+        ax.text(0.01, 1.02, cap, transform=ax.transAxes, fontsize=10, ha="left")
+        plt.tight_layout()
+        return fig
+
+    # --------------------------
+    # Controls for this tab
+    # --------------------------
+    left, mid, right = st.columns([1.2, 1, 1])
+
+    with left:
+        # Batter selector (use all OLE_REB batters from 'data' already filtered)
+        batters = sorted(data["Batter"].dropna().unique().tolist())
+        sel_batter = st.selectbox("Batter", batters)
+
+        # Date range within batter sample
+        df_b = data[data["Batter"] == sel_batter].copy()
+        if "Date" in df_b.columns:
+            df_b["Date"] = pd.to_datetime(df_b["Date"], errors="coerce")
+            df_b = df_b.dropna(subset=["Date"])
+            min_d, max_d = df_b["Date"].min(), df_b["Date"].max()
+            date_rng = st.date_input("Date Range", value=[min_d, max_d], min_value=min_d, max_value=max_d)
+            df_b = df_b[(df_b["Date"] >= pd.Timestamp(date_rng[0])) & (df_b["Date"] <= pd.Timestamp(date_rng[1]))]
+
+    with mid:
+        # Pitch type filter
+        ptypes = ["All"] + sorted(df_b["TaggedPitchType"].dropna().unique().tolist())
+        sel_ptype = st.selectbox("TaggedPitchType", ptypes, index=0)
+        if sel_ptype != "All":
+            df_b = df_b[df_b["TaggedPitchType"] == sel_ptype]
+
+        # Velocity slider (if present)
+        if VELO_COL:
+            vmin, vmax = float(df_b[VELO_COL].min()), float(df_b[VELO_COL].max())
+            vel_rng = st.slider("Velocity (mph)", min_value=float(np.floor(vmin)), max_value=float(np.ceil(vmax)),
+                                value=(float(np.floor(vmin)), float(np.ceil(vmax))))
+            df_b = df_b[(df_b[VELO_COL] >= vel_rng[0]) & (df_b[VELO_COL] <= vel_rng[1])]
+
+    with right:
+        # IVB slider (if present)
+        if IVB_COL:
+            ivb_min, ivb_max = float(df_b[IVB_COL].min()), float(df_b[IVB_COL].max())
+            ivb_rng = st.slider("Induced VB", min_value=float(np.floor(ivb_min)), max_value=float(np.ceil(ivb_max)),
+                                value=(float(np.floor(ivb_min)), float(np.ceil(ivb_max))))
+            df_b = df_b[(df_b[IVB_COL] >= ivb_rng[0]) & (df_b[IVB_COL] <= ivb_rng[1])]
+
+        # HB slider (if present)
+        if HB_COL:
+            hb_min, hb_max = float(df_b[HB_COL].min()), float(df_b[HB_COL].max())
+            hb_rng = st.slider("Horizontal Break", min_value=float(np.floor(hb_min)), max_value=float(np.ceil(hb_max)),
+                               value=(float(np.floor(hb_min)), float(np.ceil(hb_max))))
+            df_b = df_b[(df_b[HB_COL] >= hb_rng[0]) & (df_b[HB_COL] <= hb_rng[1])]
+
+    # --------------------------
+    # Build graphic (batter sample)
+    # --------------------------
+    req_cols = {"PlateLocSide","PlateLocHeight","PitchCall","run_value"}
+    if not req_cols.issubset(df_b.columns):
+        st.info("Required columns not found for this graphic: " + ", ".join(sorted(req_cols - set(df_b.columns))))
+    elif df_b.empty:
+        st.info("No pitches match the current filters.")
+    else:
+        df_flags = add_flags(df_b)
+        rv_tbl, totals = rv_by_zone(df_flags)
+
+        # Optional: league avg (SEC master) comparison in title
+        sec_master_path = "SEC_2025_Master.csv"
+        league_note = ""
+        if sec_master_path and os.path.exists(sec_master_path):
+            sec = pd.read_csv(sec_master_path, low_memory=False)
+            # apply same type / velo / ivb / hb filters but DO NOT limit to OLE_REB nor batter
+            if sel_ptype != "All" and "TaggedPitchType" in sec.columns:
+                sec = sec[sec["TaggedPitchType"] == sel_ptype]
+            if VELO_COL and VELO_COL in sec.columns and "vel_rng" in locals():
+                sec = sec[(sec[VELO_COL] >= vel_rng[0]) & (sec[VELO_COL] <= vel_rng[1])]
+            if IVB_COL and IVB_COL in sec.columns and "ivb_rng" in locals():
+                sec = sec[(sec[IVB_COL] >= ivb_rng[0]) & (sec[IVB_COL] <= ivb_rng[1])]
+            if HB_COL and HB_COL in sec.columns and "hb_rng" in locals():
+                sec = sec[(sec[HB_COL] >= hb_rng[0]) & (sec[HB_COL] <= hb_rng[1])]
+
+            if req_cols.issubset(sec.columns) and not sec.empty:
+                sec_flags = add_flags(sec)
+                sec_tbl, sec_tot = rv_by_zone(sec_flags)
+                league_note = f"   (League swing RV: {sec_tot['sw_total']:.0f}, take RV: {sec_tot['tk_total']:.0f})"
+            else:
+                league_note = "   (League file missing columns or empty with filters)"
+
+        fig_rv = plot_rv_bars(rv_tbl, totals, title=f"{sel_batter} – Run Value by Zone (Swing vs Take){league_note}")
+        st.pyplot(fig_rv, use_container_width=True)
+
