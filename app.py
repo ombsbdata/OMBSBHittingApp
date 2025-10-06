@@ -5,6 +5,9 @@ import seaborn as sns
 from matplotlib.gridspec import GridSpec
 import matplotlib.image as mpimg
 import numpy as np
+import gdown
+import tempfile
+
 
 # Configure Streamlit for wide layout and remove margins for better printing
 st.set_page_config(
@@ -669,27 +672,35 @@ with tab2:
         df_flags = add_flags(df_b)
         rv_tbl, totals = rv_by_zone(df_flags)
 
-        # Optional: league avg (SEC master) comparison in title
-        sec_master_path = "SEC_2025_Master.csv"
+        # --- SEC master (league average) loader via gdown ---
         league_note = ""
-        if sec_master_path and os.path.exists(sec_master_path):
-            sec = pd.read_csv(sec_master_path, low_memory=False)
-            # apply same type / velo / ivb / hb filters but DO NOT limit to OLE_REB nor batter
-            if sel_ptype != "All" and "TaggedPitchType" in sec.columns:
-                sec = sec[sec["TaggedPitchType"] == sel_ptype]
-            if VELO_COL and VELO_COL in sec.columns and "vel_rng" in locals():
-                sec = sec[(sec[VELO_COL] >= vel_rng[0]) & (sec[VELO_COL] <= vel_rng[1])]
-            if IVB_COL and IVB_COL in sec.columns and "ivb_rng" in locals():
-                sec = sec[(sec[IVB_COL] >= ivb_rng[0]) & (sec[IVB_COL] <= ivb_rng[1])]
-            if HB_COL and HB_COL in sec.columns and "hb_rng" in locals():
-                sec = sec[(sec[HB_COL] >= hb_rng[0]) & (sec[HB_COL] <= hb_rng[1])]
-
-            if req_cols.issubset(sec.columns) and not sec.empty:
-                sec_flags = add_flags(sec)
-                sec_tbl, sec_tot = rv_by_zone(sec_flags)
-                league_note = f"   (League swing RV: {sec_tot['sw_total']:.0f}, take RV: {sec_tot['tk_total']:.0f})"
-            else:
-                league_note = "   (League file missing columns or empty with filters)"
+        SEC_MASTER_GDRIVE_ID = "104xeuMHhMkb18KiJOVu-V48AhMpnmyWT"  # <--- REPLACE THIS
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+                gdown.download(f"https://drive.google.com/uc?id={SEC_MASTER_GDRIVE_ID}", tmp.name, quiet=True)
+                sec_master_path = tmp.name
+        
+            if os.path.exists(sec_master_path):
+                sec = pd.read_csv(sec_master_path, low_memory=False)
+                # Apply same filters as player
+                if sel_ptype != "All" and "TaggedPitchType" in sec.columns:
+                    sec = sec[sec["TaggedPitchType"] == sel_ptype]
+                if VELO_COL and VELO_COL in sec.columns and "vel_rng" in locals():
+                    sec = sec[(sec[VELO_COL] >= vel_rng[0]) & (sec[VELO_COL] <= vel_rng[1])]
+                if IVB_COL and IVB_COL in sec.columns and "ivb_rng" in locals():
+                    sec = sec[(sec[IVB_COL] >= ivb_rng[0]) & (sec[IVB_COL] <= ivb_rng[1])]
+                if HB_COL and HB_COL in sec.columns and "hb_rng" in locals():
+                    sec = sec[(sec[HB_COL] >= hb_rng[0]) & (sec[HB_COL] <= hb_rng[1])]
+        
+                if req_cols.issubset(sec.columns) and not sec.empty:
+                    sec_flags = add_flags(sec)
+                    sec_tbl, sec_tot = rv_by_zone(sec_flags)
+                    league_note = f"   (League swing RV: {sec_tot['sw_total']:.0f}, take RV: {sec_tot['tk_total']:.0f})"
+                else:
+                    league_note = "   (League file missing columns or empty with filters)"
+        except Exception as e:
+            st.warning(f"⚠️ Could not load SEC master via gdown: {e}")
+        )"
 
         fig_rv = plot_rv_bars(rv_tbl, totals, title=f"{sel_batter} – Run Value by Zone (Swing vs Take){league_note}")
         st.pyplot(fig_rv, use_container_width=True)
