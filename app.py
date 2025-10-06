@@ -541,25 +541,31 @@ with tab2:
         return (x >= x0) & (x <= x1) & (y >= y0) & (y <= y1)
 
     def tag_zone_bucket(df):
-        x = df["PlateLocSide"].values
-        y = df["PlateLocHeight"].values
-
-        # inner 3x3 "heart" using your split grid
-        heart_x0, heart_x1 = x_splits[1], x_splits[2]
-        heart_y0, heart_y1 = y_splits[1], y_splits[2]
-        in_heart = in_rect(x, y, heart_x0, heart_x1, heart_y0, heart_y1)
-
-        # shadow (the bigger rectangle you draw)
-        in_shadow = in_rect(x, y, shadow_left, shadow_right, shadow_bottom, shadow_top)
-
+        x = df["PlateLocSide"].to_numpy()
+        y = df["PlateLocHeight"].to_numpy()
+    
+        # --- compute heart box from rulebook bounds (no x_splits/y_splits needed) ---
+        zone_w = (rulebook_right - rulebook_left)
+        zone_h = (rulebook_top - rulebook_bottom)
+        heart_x0 = rulebook_left  + 0.25 * zone_w
+        heart_x1 = rulebook_right - 0.25 * zone_w
+        heart_y0 = rulebook_bottom + 0.25 * zone_h
+        heart_y1 = rulebook_top    - 0.25 * zone_h
+    
+        # shadow (your bigger rectangle)
+        in_shadow = (x >= shadow_left) & (x <= shadow_right) & (y >= shadow_bottom) & (y <= shadow_top)
+        # heart
+        in_heart  = (x >= heart_x0) & (x <= heart_x1) & (y >= heart_y0) & (y <= heart_y1)
         # chase = outside shadow but still near the zone
-        in_chase = in_rect(x, y, -1.75, 1.75, 1.0, 4.0)
-
+        in_chase  = (x >= -1.75) & (x <= 1.75) & (y >= 1.0) & (y <= 4.0)
+    
         zone = np.full(len(df), "Waste", dtype=object)
         zone[in_chase]  = "Chase"
         zone[in_shadow] = "Shadow"
         zone[in_heart]  = "Heart"   # overwrite to enforce priority
+    
         return pd.Series(zone, index=df.index, name="ZoneBucket")
+    
 
     SWING_CALLS = {"Foul", "InPlay", "StrikeSwinging", "FoulBallFieldable", "FoulBallNotFieldable"}
 
