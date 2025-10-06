@@ -121,6 +121,19 @@ pitch_type_markers = {
 # Streamlit app setup
 st.title("OMBSB Hitting App")
 
+# ----- Strike-zone geometry (feet) -----
+rulebook_left  = -0.83083
+rulebook_right =  0.83083
+rulebook_bottom = 1.5
+rulebook_top    = 3.3775
+
+# “Shadow” ring (your larger box around the zone)
+shadow_left   = -0.99750
+shadow_right  =  0.99750
+shadow_bottom =  1.377
+shadow_top    =  3.5
+
+
 # Create tabs
 tab1, tab2 = st.tabs(["Post-Game Summary", "Hitter Profile"])
 
