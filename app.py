@@ -534,8 +534,10 @@ with tab1:
 
 with tab2:
     import os
+    from matplotlib.patches import Rectangle, FancyBboxPatch
+    from matplotlib.patches import Circle as PatchCircle
 
-    st.subheader("Hitter Profile – Run Value by Zone (Swing vs Take)")
+    st.subheader("Hitter Profile – Run Value by Zone")
 
     # --------------------------
     # Helpers scoped to tab2
@@ -550,14 +552,10 @@ with tab2:
     IVB_COL  = first_col(data, ["InducedVertBreak", "InducedVert", "IVB", "VertBreak", "iVB"])
     HB_COL   = first_col(data, ["HorzBreak", "HorizontalBreak", "HB"])
 
-    def in_rect(x, y, x0, x1, y0, y1):
-        return (x >= x0) & (x <= x1) & (y >= y0) & (y <= y1)
-
     def tag_zone_bucket(df):
         x = df["PlateLocSide"].to_numpy()
         y = df["PlateLocHeight"].to_numpy()
     
-        # --- compute heart box from rulebook bounds (no x_splits/y_splits needed) ---
         zone_w = (rulebook_right - rulebook_left)
         zone_h = (rulebook_top - rulebook_bottom)
         heart_x0 = rulebook_left  + 0.25 * zone_w
@@ -565,20 +563,16 @@ with tab2:
         heart_y0 = rulebook_bottom + 0.25 * zone_h
         heart_y1 = rulebook_top    - 0.25 * zone_h
     
-        # shadow (your bigger rectangle)
         in_shadow = (x >= shadow_left) & (x <= shadow_right) & (y >= shadow_bottom) & (y <= shadow_top)
-        # heart
         in_heart  = (x >= heart_x0) & (x <= heart_x1) & (y >= heart_y0) & (y <= heart_y1)
-        # chase = outside shadow but still near the zone
         in_chase  = (x >= -1.75) & (x <= 1.75) & (y >= 1.0) & (y <= 4.0)
     
         zone = np.full(len(df), "Waste", dtype=object)
         zone[in_chase]  = "Chase"
         zone[in_shadow] = "Shadow"
-        zone[in_heart]  = "Heart"   # overwrite to enforce priority
+        zone[in_heart]  = "Heart"
     
         return pd.Series(zone, index=df.index, name="ZoneBucket")
-    
 
     SWING_CALLS = {"Foul", "InPlay", "StrikeSwinging", "FoulBallFieldable", "FoulBallNotFieldable"}
 
@@ -599,36 +593,279 @@ with tab2:
             rows.append({
                 "Zone": z,
                 "Pitches": len(sub),
-                "Swing%": (len(swings) / len(sub)) if len(sub) else 0.0,
+                "Swing%": (len(swings) / len(sub) * 100) if len(sub) else 0.0,
+                "Take%": (len(takes) / len(sub) * 100) if len(sub) else 0.0,
                 "RV_swing": swings["run_value"].sum(),
-                "RV_take":  takes["run_value"].sum()
+                "RV_take":  takes["run_value"].sum(),
+                "RV_total": sub["run_value"].sum()
             })
         out = pd.DataFrame(rows)
         totals = {
             "sw_total": df.loc[df["IsSwing"], "run_value"].sum(),
             "tk_total": df.loc[df["IsTake"],  "run_value"].sum(),
-            "n": int(len(df))
+            "total_rv": df["run_value"].sum(),
+            "n": int(len(df)),
+            "swing_n": int(df["IsSwing"].sum()),
+            "take_n": int((~df["IsSwing"]).sum())
         }
         return out, totals
 
-    def plot_rv_bars(rv_tbl, totals, title):
-        import matplotlib.pyplot as plt
-        zones = ["Heart", "Shadow", "Chase", "Waste"]
-        y = np.arange(len(zones))
-        swing = rv_tbl.set_index("Zone").loc[zones, "RV_swing"].values
-        take  = rv_tbl.set_index("Zone").loc[zones, "RV_take"].values
-
-        fig, ax = plt.subplots(figsize=(8.5, 5))
-        ax.axvline(0, color="#999", lw=1)
-        ax.barh(y+0.20, swing, height=0.36, color="#5DADE2", label="Swing RV")
-        ax.barh(y-0.20, take,  height=0.36, color="#D68910", label="Take RV")
-        ax.set_yticks(y); ax.set_yticklabels(zones, fontsize=11)
-        ax.set_xlabel("Runs", fontsize=11)
-        ax.set_title(title, fontsize=14, weight="bold")
-        ax.legend(frameon=False, ncols=2, loc="lower right")
-        cap = f"+{totals['sw_total']:.0f} Swing Runs   |   +{totals['tk_total']:.0f} Take Runs   |   {totals['n']} pitches"
-        ax.text(0.01, 1.02, cap, transform=ax.transAxes, fontsize=10, ha="left")
-        plt.tight_layout()
+    def create_statcast_graphic(rv_tbl, totals, batter_name, year, league_tbl=None):
+        """Create a Statcast-style graphic with batter silhouette, zones, and stats"""
+        fig = plt.figure(figsize=(16, 6))
+        
+        # Define zone colors matching Statcast
+        zone_colors = {
+            'Heart': '#E8B4D4',
+            'Shadow': '#F4C9A8', 
+            'Chase': '#F9ED97',
+            'Waste': '#D3D3D3'
+        }
+        
+        # Create 4 main sections
+        # Left: Batter silhouette + zone diagram (25%)
+        ax_batter = plt.subplot2grid((1, 20), (0, 0), colspan=5)
+        # Middle-left: Frequency bubbles (15%)
+        ax_freq = plt.subplot2grid((1, 20), (0, 5), colspan=3)
+        # Middle: Swing/Take bars (30%)
+        ax_swing = plt.subplot2grid((1, 20), (0, 8), colspan=6)
+        # Right: Run Value bars (30%)
+        ax_rv = plt.subplot2grid((1, 20), (0, 14), colspan=6)
+        
+        # === PANEL 1: Batter Silhouette + Zone Diagram ===
+        ax_batter.set_xlim(-1.2, 1.2)
+        ax_batter.set_ylim(0, 4.5)
+        ax_batter.axis('off')
+        ax_batter.set_aspect('equal')
+        
+        # Draw simplified batter silhouette
+        batter_x = -0.85
+        # Body
+        ax_batter.add_patch(Rectangle((batter_x - 0.15, 0.8), 0.3, 1.2, 
+                                      fc='#808080', ec='#404040', lw=2))
+        # Head
+        head = PatchCircle((batter_x, 2.2), 0.2, fc='#808080', ec='#404040', lw=2)
+        ax_batter.add_patch(head)
+        # Arms (bat)
+        ax_batter.plot([batter_x + 0.1, batter_x + 0.5], [1.8, 3.2], 
+                       c='#404040', lw=4)
+        # Legs
+        ax_batter.plot([batter_x - 0.05, batter_x - 0.15], [0.8, 0.2], 
+                       c='#404040', lw=3)
+        ax_batter.plot([batter_x + 0.05, batter_x + 0.15], [0.8, 0.2], 
+                       c='#404040', lw=3)
+        
+        # Draw zone diagram
+        zone_x = 0.4
+        zone_y_base = 0.5
+        
+        # Calculate dimensions
+        sz_width = rulebook_right - rulebook_left
+        sz_height = rulebook_top - rulebook_bottom
+        heart_width = sz_width * 0.5
+        heart_height = sz_height * 0.5
+        shadow_width = shadow_right - shadow_left
+        shadow_height = shadow_top - shadow_bottom
+        
+        # Outer zones (Chase + Waste combined as yellow box)
+        chase_box_w = 2.0
+        chase_box_h = 2.8
+        chase_rect = FancyBboxPatch((zone_x - chase_box_w/2, zone_y_base), 
+                                    chase_box_w, chase_box_h,
+                                    boxstyle="round,pad=0.05", 
+                                    fc=zone_colors['Chase'], ec='black', lw=2)
+        ax_batter.add_patch(chase_rect)
+        ax_batter.text(zone_x, zone_y_base + chase_box_h + 0.15, 'Chase', 
+                      fontsize=11, weight='bold', ha='center')
+        
+        # Shadow zone
+        shadow_rect = Rectangle((zone_x - shadow_width/2, zone_y_base + 0.3), 
+                                shadow_width, shadow_height * 0.85,
+                                fc=zone_colors['Shadow'], ec='black', lw=2)
+        ax_batter.add_patch(shadow_rect)
+        
+        # Strike zone outline
+        sz_rect = Rectangle((zone_x - sz_width/2, zone_y_base + 0.42), 
+                            sz_width, sz_height * 0.85,
+                            fc='none', ec='black', lw=3, linestyle='--')
+        ax_batter.add_patch(sz_rect)
+        ax_batter.text(zone_x, zone_y_base + 0.15, 'Strike Zone', 
+                      fontsize=9, ha='center', style='italic')
+        
+        # Heart zone
+        heart_rect = Rectangle((zone_x - heart_width/2, zone_y_base + 0.7), 
+                               heart_width, heart_height * 0.75,
+                               fc=zone_colors['Heart'], ec='black', lw=2)
+        ax_batter.add_patch(heart_rect)
+        
+        # Add run values to zones
+        rv_dict = rv_tbl.set_index('Zone')['RV_total'].to_dict()
+        
+        # Heart RV (center)
+        heart_rv = rv_dict.get('Heart', 0)
+        ax_batter.text(zone_x, zone_y_base + 1.2, f'{heart_rv:+.0f} Runs',
+                      fontsize=12, weight='bold', ha='center', va='center',
+                      bbox=dict(boxstyle='round', fc='white', alpha=0.8))
+        
+        # Shadow RV (top)
+        shadow_rv = rv_dict.get('Shadow', 0)
+        ax_batter.text(zone_x, zone_y_base + 2.5, f'{shadow_rv:+.0f} Runs',
+                      fontsize=11, weight='bold', ha='center',
+                      bbox=dict(boxstyle='round', fc='white', alpha=0.8))
+        
+        # Chase RV (bottom)
+        chase_rv = rv_dict.get('Chase', 0)
+        ax_batter.text(zone_x, zone_y_base + 0.5, f'{chase_rv:+.0f} Runs',
+                      fontsize=11, weight='bold', ha='center',
+                      bbox=dict(boxstyle='round', fc='white', alpha=0.8))
+        
+        # Waste RV (outside, positioned strategically)
+        waste_rv = rv_dict.get('Waste', 0)
+        ax_batter.text(zone_x - 0.85, zone_y_base + 1.5, f'{waste_rv:+.0f} Runs',
+                      fontsize=10, weight='bold', ha='center',
+                      bbox=dict(boxstyle='round', fc='white', alpha=0.8))
+        
+        # === PANEL 2: Pitch Frequency ===
+        ax_freq.set_xlim(0, 1)
+        ax_freq.set_ylim(-0.5, 3.5)
+        ax_freq.axis('off')
+        
+        ax_freq.text(0.5, 3.3, 'Pitch\nFrequency', fontsize=11, weight='bold', 
+                    ha='center', va='top')
+        
+        zones_ordered = ['Heart', 'Shadow', 'Chase', 'Waste']
+        y_positions = [2.5, 1.7, 0.9, 0.1]
+        
+        total_pitches = rv_tbl['Pitches'].sum()
+        
+        for i, zone in enumerate(zones_ordered):
+            zone_data = rv_tbl[rv_tbl['Zone'] == zone].iloc[0]
+            freq_pct = (zone_data['Pitches'] / total_pitches * 100) if total_pitches > 0 else 0
+            
+            # Sized bubble
+            size = max(0.15, freq_pct / 100 * 0.4)
+            circle = PatchCircle((0.5, y_positions[i]), size, 
+                                fc=zone_colors[zone], ec='black', lw=2)
+            ax_freq.add_patch(circle)
+            
+            # Count
+            ax_freq.text(0.5, y_positions[i], str(zone_data['Pitches']),
+                        fontsize=10, weight='bold', ha='center', va='center')
+            
+            # Percentage
+            ax_freq.text(0.5, y_positions[i] - size - 0.12, f'{freq_pct:.0f}%',
+                        fontsize=9, ha='center')
+        
+        # Total pitches note
+        ax_freq.text(0.5, -0.4, f'{total_pitches} total pitches',
+                    fontsize=8, ha='center', style='italic')
+        
+        # === PANEL 3: Swing/Take Percentages ===
+        ax_swing.set_xlim(-5, 105)
+        ax_swing.set_ylim(-0.5, 3.5)
+        ax_swing.set_xticks([0, 25, 50, 75, 100])
+        ax_swing.set_xticklabels(['0%', '25%', '50%', '75%', '100%'])
+        ax_swing.set_yticks([])
+        ax_swing.spines['left'].set_visible(False)
+        ax_swing.spines['top'].set_visible(False)
+        ax_swing.spines['right'].set_visible(False)
+        ax_swing.set_xlabel('Swing    Take', fontsize=11, weight='bold')
+        ax_swing.set_title('Swing / Take', fontsize=12, weight='bold', pad=10)
+        
+        for i, zone in enumerate(zones_ordered):
+            zone_data = rv_tbl[rv_tbl['Zone'] == zone].iloc[0]
+            y_pos = 3 - i * 0.9
+            
+            swing_pct = zone_data['Swing%']
+            take_pct = zone_data['Take%']
+            
+            # Swing bar (left side)
+            ax_swing.barh(y_pos, swing_pct, height=0.4, left=0,
+                         color='#3498DB', alpha=0.7, edgecolor='black', lw=1)
+            
+            # Take bar (right side)
+            ax_swing.barh(y_pos, take_pct, height=0.4, left=swing_pct,
+                         color='#E67E22', alpha=0.7, edgecolor='black', lw=1)
+            
+            # Add percentages inside bars
+            if swing_pct > 10:
+                ax_swing.text(swing_pct/2, y_pos, f'{swing_pct:.0f}%',
+                            fontsize=9, weight='bold', ha='center', va='center')
+            if take_pct > 10:
+                ax_swing.text(swing_pct + take_pct/2, y_pos, f'{take_pct:.0f}%',
+                            fontsize=9, weight='bold', ha='center', va='center')
+            
+            # League average line (if available)
+            if league_tbl is not None:
+                league_zone = league_tbl[league_tbl['Zone'] == zone]
+                if not league_zone.empty:
+                    league_swing = league_zone.iloc[0]['Swing%']
+                    ax_swing.plot([league_swing, league_swing], [y_pos - 0.2, y_pos + 0.2],
+                                 color='gray', lw=2, linestyle='--', alpha=0.7)
+        
+        # Legend for league average
+        if league_tbl is not None:
+            ax_swing.plot([], [], color='gray', lw=2, linestyle='--', 
+                         label='League Avg', alpha=0.7)
+            ax_swing.legend(loc='lower right', fontsize=8, frameon=False)
+        
+        # === PANEL 4: Run Value ===
+        ax_rv.set_xlim(-50, 50)
+        ax_rv.set_ylim(-0.5, 3.5)
+        ax_rv.axvline(0, color='black', lw=1.5, alpha=0.5)
+        ax_rv.set_yticks([])
+        ax_rv.spines['left'].set_visible(False)
+        ax_rv.spines['top'].set_visible(False)
+        ax_rv.spines['right'].set_visible(False)
+        ax_rv.set_xlabel('Runs', fontsize=11, weight='bold')
+        ax_rv.set_title('Run Value', fontsize=12, weight='bold', pad=10)
+        
+        for i, zone in enumerate(zones_ordered):
+            zone_data = rv_tbl[rv_tbl['Zone'] == zone].iloc[0]
+            y_pos = 3 - i * 0.9
+            
+            swing_rv = zone_data['RV_swing']
+            take_rv = zone_data['RV_take']
+            
+            # Swing RV bar
+            ax_rv.barh(y_pos + 0.18, swing_rv, height=0.32,
+                      color='#27AE60' if swing_rv > 0 else '#E74C3C',
+                      alpha=0.8, edgecolor='black', lw=1)
+            
+            # Take RV bar  
+            ax_rv.barh(y_pos - 0.18, take_rv, height=0.32,
+                      color='#27AE60' if take_rv > 0 else '#E74C3C',
+                      alpha=0.8, edgecolor='black', lw=1)
+            
+            # Add values
+            offset_swing = 2 if abs(swing_rv) < 3 else 0
+            offset_take = 2 if abs(take_rv) < 3 else 0
+            
+            ax_rv.text(swing_rv + offset_swing, y_pos + 0.18, f'{swing_rv:+.0f}',
+                      fontsize=9, weight='bold', va='center',
+                      ha='left' if swing_rv >= 0 else 'right')
+            ax_rv.text(take_rv + offset_take, y_pos - 0.18, f'{take_rv:+.0f}',
+                      fontsize=9, weight='bold', va='center',
+                      ha='left' if take_rv >= 0 else 'right')
+        
+        # Legend
+        handles = [
+            plt.Rectangle((0, 0), 1, 1, fc='#3498DB', alpha=0.7, label='Swing'),
+            plt.Rectangle((0, 0), 1, 1, fc='#E67E22', alpha=0.7, label='Take')
+        ]
+        ax_rv.legend(handles=handles, loc='lower right', fontsize=9, frameon=False)
+        
+        # Add swing/take runs totals at bottom
+        swing_total_text = f'+{totals["sw_total"]:.0f} Swing Runs'
+        take_total_text = f'+{totals["tk_total"]:.0f} Take Runs'
+        ax_rv.text(0.02, -0.45, f'{swing_total_text}    |    {take_total_text}',
+                  transform=ax_rv.transAxes, fontsize=10, weight='bold')
+        
+        # === Overall title ===
+        title_text = f'{batter_name} ({"RHH" if "RHH" in batter_name else "LHH"}) {year}\n{totals["total_rv"]:+.0f} Run Value'
+        fig.suptitle(title_text, fontsize=16, weight='bold', y=0.98)
+        
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
         return fig
 
     # --------------------------
@@ -637,90 +874,83 @@ with tab2:
     left, mid, right = st.columns([1.2, 1, 1])
 
     with left:
-        # Batter selector (use all OLE_REB batters from 'data' already filtered)
         batters = sorted(data["Batter"].dropna().unique().tolist())
-        sel_batter = st.selectbox("Batter", batters)
+        sel_batter = st.selectbox("Batter", batters, key='tab2_batter')
 
-        # Date range within batter sample
         df_b = data[data["Batter"] == sel_batter].copy()
         if "Date" in df_b.columns:
             df_b["Date"] = pd.to_datetime(df_b["Date"], errors="coerce")
             df_b = df_b.dropna(subset=["Date"])
             min_d, max_d = df_b["Date"].min(), df_b["Date"].max()
-            date_rng = st.date_input("Date Range", value=[min_d, max_d], min_value=min_d, max_value=max_d)
-            df_b = df_b[(df_b["Date"] >= pd.Timestamp(date_rng[0])) & (df_b["Date"] <= pd.Timestamp(date_rng[1]))]
+            date_rng = st.date_input("Date Range", value=[min_d, max_d], 
+                                    min_value=min_d, max_value=max_d, key='tab2_date')
+            df_b = df_b[(df_b["Date"] >= pd.Timestamp(date_rng[0])) & 
+                       (df_b["Date"] <= pd.Timestamp(date_rng[1]))]
+            year_display = date_rng[0].year
 
     with mid:
-        # Pitch type filter
         ptypes = ["All"] + sorted(df_b["TaggedPitchType"].dropna().unique().tolist())
-        sel_ptype = st.selectbox("TaggedPitchType", ptypes, index=0)
+        sel_ptype = st.selectbox("TaggedPitchType", ptypes, index=0, key='tab2_ptype')
         if sel_ptype != "All":
             df_b = df_b[df_b["TaggedPitchType"] == sel_ptype]
 
-        # Velocity slider (if present)
         if VELO_COL:
             vmin, vmax = float(df_b[VELO_COL].min()), float(df_b[VELO_COL].max())
-            vel_rng = st.slider("Velocity (mph)", min_value=float(np.floor(vmin)), max_value=float(np.ceil(vmax)),
-                                value=(float(np.floor(vmin)), float(np.ceil(vmax))))
+            vel_rng = st.slider("Velocity (mph)", min_value=float(np.floor(vmin)), 
+                               max_value=float(np.ceil(vmax)),
+                               value=(float(np.floor(vmin)), float(np.ceil(vmax))),
+                               key='tab2_velo')
             df_b = df_b[(df_b[VELO_COL] >= vel_rng[0]) & (df_b[VELO_COL] <= vel_rng[1])]
 
     with right:
-        # IVB slider (if present)
         if IVB_COL:
             ivb_min, ivb_max = float(df_b[IVB_COL].min()), float(df_b[IVB_COL].max())
-            ivb_rng = st.slider("Induced VB", min_value=float(np.floor(ivb_min)), max_value=float(np.ceil(ivb_max)),
-                                value=(float(np.floor(ivb_min)), float(np.ceil(ivb_max))))
+            ivb_rng = st.slider("Induced VB", min_value=float(np.floor(ivb_min)), 
+                               max_value=float(np.ceil(ivb_max)),
+                               value=(float(np.floor(ivb_min)), float(np.ceil(ivb_max))),
+                               key='tab2_ivb')
             df_b = df_b[(df_b[IVB_COL] >= ivb_rng[0]) & (df_b[IVB_COL] <= ivb_rng[1])]
 
-        # HB slider (if present)
         if HB_COL:
             hb_min, hb_max = float(df_b[HB_COL].min()), float(df_b[HB_COL].max())
-            hb_rng = st.slider("Horizontal Break", min_value=float(np.floor(hb_min)), max_value=float(np.ceil(hb_max)),
-                               value=(float(np.floor(hb_min)), float(np.ceil(hb_max))))
+            hb_rng = st.slider("Horizontal Break", min_value=float(np.floor(hb_min)), 
+                              max_value=float(np.ceil(hb_max)),
+                              value=(float(np.floor(hb_min)), float(np.ceil(hb_max))),
+                              key='tab2_hb')
             df_b = df_b[(df_b[HB_COL] >= hb_rng[0]) & (df_b[HB_COL] <= hb_rng[1])]
 
     # --------------------------
-    # Build graphic (batter sample)
+    # Build graphic
     # --------------------------
     req_cols = {"PlateLocSide","PlateLocHeight","PitchCall","run_value"}
     if not req_cols.issubset(df_b.columns):
-        st.info("Required columns not found for this graphic: " + ", ".join(sorted(req_cols - set(df_b.columns))))
+        st.info("Required columns: " + ", ".join(sorted(req_cols - set(df_b.columns))))
     elif df_b.empty:
         st.info("No pitches match the current filters.")
     else:
         df_flags = add_flags(df_b)
         rv_tbl, totals = rv_by_zone(df_flags)
 
-        # --- SEC master (league average) loader via gdown ---
-        league_note = ""
-        SEC_MASTER_GDRIVE_ID = "104xeuMHhMkb18KiJOVu-V48AhMpnmyWT"  # <--- REPLACE THIS
+        # Load league data
+        league_tbl = None
+        SEC_MASTER_GDRIVE_ID = "104xeuMHhMkb18KiJOVu-V48AhMpnmyWT"
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
-                gdown.download(f"https://drive.google.com/uc?id={SEC_MASTER_GDRIVE_ID}", tmp.name, quiet=True)
-                sec_master_path = tmp.name
-        
-            if os.path.exists(sec_master_path):
-                sec = pd.read_csv(sec_master_path, low_memory=False)
-                # Apply same filters as player
+                gdown.download(f"https://drive.google.com/uc?id={SEC_MASTER_GDRIVE_ID}", 
+                             tmp.name, quiet=True)
+                sec = pd.read_csv(tmp.name, low_memory=False)
+                
                 if sel_ptype != "All" and "TaggedPitchType" in sec.columns:
                     sec = sec[sec["TaggedPitchType"] == sel_ptype]
-                if VELO_COL and VELO_COL in sec.columns and "vel_rng" in locals():
+                if VELO_COL and VELO_COL in sec.columns:
                     sec = sec[(sec[VELO_COL] >= vel_rng[0]) & (sec[VELO_COL] <= vel_rng[1])]
-                if IVB_COL and IVB_COL in sec.columns and "ivb_rng" in locals():
-                    sec = sec[(sec[IVB_COL] >= ivb_rng[0]) & (sec[IVB_COL] <= ivb_rng[1])]
-                if HB_COL and HB_COL in sec.columns and "hb_rng" in locals():
-                    sec = sec[(sec[HB_COL] >= hb_rng[0]) & (sec[HB_COL] <= hb_rng[1])]
-        
+                
                 if req_cols.issubset(sec.columns) and not sec.empty:
                     sec_flags = add_flags(sec)
-                    sec_tbl, sec_tot = rv_by_zone(sec_flags)
-                    league_note = f"   (League swing RV: {sec_tot['sw_total']:.0f}, take RV: {sec_tot['tk_total']:.0f})"
-                else:
-                    league_note = "   (League file missing columns or empty with filters)"
-        except Exception as e:
-            st.warning(f"⚠️ Could not load SEC master via gdown: {e}")
+                    league_tbl, _ = rv_by_zone(sec_flags)
+        except:
+            pass
 
-
-        fig_rv = plot_rv_bars(rv_tbl, totals, title=f"{sel_batter} – Run Value by Zone (Swing vs Take){league_note}")
-        st.pyplot(fig_rv, use_container_width=True)
-
+        fig = create_statcast_graphic(rv_tbl, totals, sel_batter, 
+                                     year_display, league_tbl)
+        st.pyplot(fig, use_container_width=True)
