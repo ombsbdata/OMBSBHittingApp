@@ -847,10 +847,47 @@ with tab2:
             ax_swing.legend(handles=legend_elements, loc='lower right', fontsize=10, 
                           frameon=True, fancybox=True, shadow=True)
         
-        # === PANEL 5: Run Value ===
-        ax_rv.set_xlim(-50, 50)
+        # === PANEL 5: Run Value (IMPROVED WITH DYNAMIC SCALING) ===
+        rv_y_positions = [3.0, 2.05, 1.1, 0.15]  # Match label positions
+        
+        # Calculate dynamic x-axis limits based on actual data
+        all_rv_values = []
+        for zone in zones_ordered:
+            zone_data = rv_tbl[rv_tbl['Zone'] == zone].iloc[0]
+            all_rv_values.extend([zone_data['RV_swing'], zone_data['RV_take']])
+        
+        # Add league values if available for better scale
+        if league_tbl is not None:
+            for zone in zones_ordered:
+                league_zone = league_tbl[league_tbl['Zone'] == zone]
+                if not league_zone.empty:
+                    all_rv_values.extend([league_zone.iloc[0]['RV_swing'], league_zone.iloc[0]['RV_take']])
+        
+        # Calculate smart bounds
+        rv_min = min(all_rv_values) if all_rv_values else -10
+        rv_max = max(all_rv_values) if all_rv_values else 10
+        
+        # Add 25% padding and ensure we include 0
+        rv_range = rv_max - rv_min
+        padding = rv_range * 0.25 if rv_range > 0 else 5
+        x_min = min(rv_min - padding, -5)  # At least -5
+        x_max = max(rv_max + padding, 5)   # At least +5
+        
+        # Round to nice numbers
+        x_min = np.floor(x_min / 5) * 5
+        x_max = np.ceil(x_max / 5) * 5
+        
+        ax_rv.set_xlim(x_min, x_max)
         ax_rv.set_ylim(0, 4)
-        ax_rv.axvline(0, color='black', lw=2.5, alpha=0.7, zorder=1)
+        
+        # Add subtle gridlines at intervals
+        gridline_interval = 10 if (x_max - x_min) > 40 else 5
+        for grid_x in np.arange(x_min, x_max + 1, gridline_interval):
+            if grid_x == 0:
+                ax_rv.axvline(grid_x, color='black', lw=2.5, alpha=0.8, zorder=1)
+            else:
+                ax_rv.axvline(grid_x, color='#ddd', lw=1.5, alpha=0.6, zorder=1, linestyle='-')
+        
         ax_rv.set_yticks([])
         ax_rv.spines['left'].set_visible(False)
         ax_rv.spines['top'].set_visible(False)
@@ -860,8 +897,7 @@ with tab2:
         ax_rv.set_xlabel('Runs', fontsize=13, weight='bold', labelpad=8)
         ax_rv.set_title('Run Value', fontsize=15, weight='bold', pad=18, color='#333')
         
-        rv_y_positions = [3.0, 2.05, 1.1, 0.15]  # Match label positions
-        
+        # Plot bars and values
         for i, zone in enumerate(zones_ordered):
             zone_data = rv_tbl[rv_tbl['Zone'] == zone].iloc[0]
             y_pos = rv_y_positions[i]
@@ -869,49 +905,70 @@ with tab2:
             swing_rv = zone_data['RV_swing']
             take_rv = zone_data['RV_take']
             
-            # Swing RV bar
+            # Swing RV bar with gradient effect (stronger color)
             swing_color = '#27AE60' if swing_rv > 0 else '#E74C3C'
             ax_rv.barh(y_pos + 0.26, swing_rv, height=0.44,
                       color=swing_color, alpha=0.95, edgecolor='black', lw=2, zorder=2)
             
-            # Take RV bar
+            # Take RV bar with gradient effect (stronger color)
             take_color = '#27AE60' if take_rv > 0 else '#E74C3C'
             ax_rv.barh(y_pos - 0.26, take_rv, height=0.44,
                       color=take_color, alpha=0.95, edgecolor='black', lw=2, zorder=2)
             
+            # Add league reference lines if available
+            if league_tbl is not None:
+                league_zone = league_tbl[league_tbl['Zone'] == zone]
+                if not league_zone.empty:
+                    league_swing_rv = league_zone.iloc[0]['RV_swing']
+                    league_take_rv = league_zone.iloc[0]['RV_take']
+                    
+                    # Swing reference line
+                    ax_rv.plot([league_swing_rv, league_swing_rv], [y_pos + 0.04, y_pos + 0.48],
+                             color='#666', lw=2.5, linestyle=':', alpha=0.7, zorder=3)
+                    
+                    # Take reference line  
+                    ax_rv.plot([league_take_rv, league_take_rv], [y_pos - 0.48, y_pos - 0.04],
+                             color='#666', lw=2.5, linestyle=':', alpha=0.7, zorder=3)
+            
             # Add values with smart positioning
             # Swing values
-            if abs(swing_rv) > 2:
-                text_x = swing_rv - (2 if swing_rv > 0 else -2)
+            bar_width_pct = abs(swing_rv) / (x_max - x_min) * 100
+            if bar_width_pct > 15:  # Bar is wide enough for text inside
                 text_color = 'white'
-            else:
-                text_x = swing_rv + (3 if swing_rv >= 0 else -3)
+                text_x = swing_rv / 2
+            else:  # Bar too narrow, put text outside
                 text_color = 'black'
+                text_x = swing_rv + (3 if swing_rv >= 0 else -3)
             
             ax_rv.text(text_x, y_pos + 0.26, f'{swing_rv:+.0f}',
                       fontsize=14, weight='bold', va='center',
-                      ha='center', color=text_color, zorder=3)
+                      ha='center', color=text_color, zorder=4)
             
             # Take values
-            if abs(take_rv) > 2:
-                text_x = take_rv - (2 if take_rv > 0 else -2)
+            bar_width_pct = abs(take_rv) / (x_max - x_min) * 100
+            if bar_width_pct > 15:  # Bar is wide enough for text inside
                 text_color = 'white'
-            else:
-                text_x = take_rv + (3 if take_rv >= 0 else -3)
+                text_x = take_rv / 2
+            else:  # Bar too narrow, put text outside
                 text_color = 'black'
+                text_x = take_rv + (3 if take_rv >= 0 else -3)
             
             ax_rv.text(text_x, y_pos - 0.26, f'{take_rv:+.0f}',
                       fontsize=14, weight='bold', va='center',
-                      ha='center', color=text_color, zorder=3)
+                      ha='center', color=text_color, zorder=4)
         
-        # Small legend for swing/take colors
+        # Enhanced legend
         from matplotlib.patches import Patch
+        from matplotlib.lines import Line2D
         legend_elements = [
             Patch(facecolor='#5DADE2', edgecolor='black', label='Swing', alpha=0.9),
             Patch(facecolor='#E67E22', edgecolor='black', label='Take', alpha=0.9)
         ]
+        if league_tbl is not None:
+            legend_elements.append(Line2D([0], [0], color='#666', lw=2.5, linestyle=':', label='League Avg'))
+        
         ax_rv.legend(handles=legend_elements, loc='upper right', fontsize=11, 
-                    frameon=True, fancybox=True, shadow=True, ncol=2)
+                    frameon=True, fancybox=True, shadow=True, ncol=2 if league_tbl is None else 3)
         
         # Add swing/take runs totals at bottom
         swing_total_text = f'{totals["sw_total"]:+.0f} Swing Runs'
