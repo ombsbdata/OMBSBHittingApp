@@ -638,9 +638,9 @@ with tab2:
         ax_swing = fig.add_subplot(gs[0, 3])
         ax_rv = fig.add_subplot(gs[0, 4])
         
-        # === PANEL 1: Zone Diagram (Maximized for Visual Impact) ===
-        ax_zone.set_xlim(-2.5, 2.5)
-        ax_zone.set_ylim(-0.1, 4.5)
+        # === PANEL 1: Zone Diagram (Fixed and Maximized) ===
+        ax_zone.set_xlim(-2.6, 2.6)
+        ax_zone.set_ylim(-0.2, 4.6)
         ax_zone.axis('off')
         ax_zone.set_aspect('equal')
         
@@ -648,71 +648,76 @@ with tab2:
         sz_width = rulebook_right - rulebook_left
         sz_height = rulebook_top - rulebook_bottom
         
-        zone_scale = 1.8  # MUCH larger to fill vertical space
+        zone_scale = 1.6  # Optimized scale - large but not too large
         center_x = 0
+        center_y = (rulebook_bottom + rulebook_top) / 2  # Vertical center
         
         # Title at top
-        ax_zone.text(center_x, 4.35, 'Strike Zone View', fontsize=14, weight='bold', 
+        ax_zone.text(center_x, 4.45, 'Strike Zone View', fontsize=14, weight='bold', 
                     ha='center', color='#333')
+        
+        # Calculate all zone dimensions first
+        sz_scaled_width = sz_width * zone_scale
+        sz_scaled_height = sz_height * zone_scale
+        
+        # Strike zone position (centered)
+        sz_x0 = center_x - sz_scaled_width/2
+        sz_y0 = center_y - sz_scaled_height/2
         
         # Draw from outside in for clean layering
         
-        # 1. Waste zone (outermost)
-        waste_padding = 0.62
+        # 1. Waste zone (outermost) - 200% of strike zone
+        waste_padding = 0.5
         waste_rect = FancyBboxPatch(
-            (center_x - (sz_width * zone_scale)/2 - waste_padding, 
-             rulebook_bottom - waste_padding),
-            sz_width * zone_scale + 2*waste_padding,
-            sz_height * zone_scale + 2*waste_padding,
+            (sz_x0 - waste_padding, sz_y0 - waste_padding),
+            sz_scaled_width + 2*waste_padding,
+            sz_scaled_height + 2*waste_padding,
             boxstyle="round,pad=0.12",
             fc='#D3D3D3', ec='#888', lw=5, alpha=0.6
         )
         ax_zone.add_patch(waste_rect)
         
-        # 2. Chase zone - bright yellow
-        chase_padding = 0.38
+        # 2. Chase zone - 200% of strike zone (inner edge)
+        chase_padding = 0.3
         chase_rect = FancyBboxPatch(
-            (center_x - (sz_width * zone_scale)/2 - chase_padding, 
-             rulebook_bottom - chase_padding),
-            sz_width * zone_scale + 2*chase_padding,
-            sz_height * zone_scale + 2*chase_padding,
+            (sz_x0 - chase_padding, sz_y0 - chase_padding),
+            sz_scaled_width + 2*chase_padding,
+            sz_scaled_height + 2*chase_padding,
             boxstyle="round,pad=0.1",
             fc='#F9ED97', ec='black', lw=5
         )
         ax_zone.add_patch(chase_rect)
         
-        # 3. Shadow zone - tan/beige
-        shadow_padding = 0.18
+        # 3. Shadow zone - 133% of strike zone
+        shadow_padding = 0.14
         shadow_rect = Rectangle(
-            (center_x - (sz_width * zone_scale)/2 - shadow_padding,
-             rulebook_bottom - shadow_padding),
-            sz_width * zone_scale + 2*shadow_padding,
-            sz_height * zone_scale + 2*shadow_padding,
+            (sz_x0 - shadow_padding, sz_y0 - shadow_padding),
+            sz_scaled_width + 2*shadow_padding,
+            sz_scaled_height + 2*shadow_padding,
             fc='#F4C9A8', ec='black', lw=5
         )
         ax_zone.add_patch(shadow_rect)
         
-        # 4. Strike zone (dashed outline)
+        # 4. Strike zone (dashed outline) - 100%
         sz_rect = Rectangle(
-            (center_x - (sz_width * zone_scale)/2, rulebook_bottom),
-            sz_width * zone_scale, sz_height * zone_scale,
+            (sz_x0, sz_y0),
+            sz_scaled_width, sz_scaled_height,
             fc='none', ec='black', lw=5.5, linestyle='--'
         )
         ax_zone.add_patch(sz_rect)
         
-        # 5. Heart zone - 34% of strike zone, properly centered
+        # 5. Heart zone - 34% of strike zone, centered within strike zone
         heart_pct = 0.34
-        heart_width = sz_width * heart_pct * zone_scale
-        heart_height = sz_height * heart_pct * zone_scale
+        heart_scaled_width = sz_scaled_width * heart_pct
+        heart_scaled_height = sz_scaled_height * heart_pct
         
-        # Center the heart zone: start at 33% from edges
-        heart_offset_pct = (1.0 - heart_pct) / 2  # 0.33
-        heart_x0 = center_x - heart_width/2
-        heart_y0 = rulebook_bottom + (sz_height * zone_scale * heart_offset_pct)
+        # Center the heart within the strike zone
+        heart_x0 = sz_x0 + (sz_scaled_width - heart_scaled_width) / 2
+        heart_y0 = sz_y0 + (sz_scaled_height - heart_scaled_height) / 2
         
         heart_rect = Rectangle(
             (heart_x0, heart_y0),
-            heart_width, heart_height,
+            heart_scaled_width, heart_scaled_height,
             fc='#E8B4D4', ec='#C41E3A', lw=5.5
         )
         ax_zone.add_patch(heart_rect)
@@ -720,33 +725,34 @@ with tab2:
         # Get run values
         rv_dict = rv_tbl.set_index('Zone')['RV_total'].to_dict()
         
-        # Add run values with LARGER text for bigger zone
-        # Heart - centered
+        # Add run values positioned in the CENTER of each zone area
+        # Heart - center of heart zone
         heart_rv = rv_dict.get('Heart', 0)
-        ax_zone.text(center_x, heart_y0 + heart_height/2, 
+        heart_center_x = heart_x0 + heart_scaled_width/2
+        heart_center_y = heart_y0 + heart_scaled_height/2
+        ax_zone.text(heart_center_x, heart_center_y, 
                     f'{heart_rv:+.0f}',
-                    fontsize=30, weight='bold', ha='center', va='center',
+                    fontsize=28, weight='bold', ha='center', va='center',
                     bbox=dict(boxstyle='round,pad=0.6', fc='white', ec='black', lw=3.5))
         
-        # Shadow - top area between strike zone and shadow edge
+        # Shadow - top of strike zone (between heart and top edge)
         shadow_rv = rv_dict.get('Shadow', 0)
-        shadow_y = heart_y0 + heart_height + (sz_height * zone_scale * heart_offset_pct + shadow_padding) / 2
+        shadow_y = heart_y0 + heart_scaled_height + (sz_scaled_height - heart_scaled_height) / 4
         ax_zone.text(center_x, shadow_y, f'{shadow_rv:+.0f}',
-                    fontsize=25, weight='bold', ha='center', va='center',
+                    fontsize=24, weight='bold', ha='center', va='center',
                     bbox=dict(boxstyle='round,pad=0.55', fc='white', ec='black', lw=3))
         
-        # Chase - bottom area
+        # Chase - bottom of strike zone (between heart and bottom edge)
         chase_rv = rv_dict.get('Chase', 0)
-        chase_y = heart_y0 - (sz_height * zone_scale * heart_offset_pct + shadow_padding) / 2
+        chase_y = heart_y0 - (sz_scaled_height - heart_scaled_height) / 4
         ax_zone.text(center_x, chase_y, f'{chase_rv:+.0f}',
-                    fontsize=25, weight='bold', ha='center', va='center',
+                    fontsize=24, weight='bold', ha='center', va='center',
                     bbox=dict(boxstyle='round,pad=0.55', fc='white', ec='black', lw=3))
         
-        # Waste - left side
+        # Waste - left side, vertically centered
         waste_rv = rv_dict.get('Waste', 0)
-        waste_x = center_x - (sz_width * zone_scale)/2 - chase_padding - 0.65
-        waste_y = rulebook_bottom + (sz_height * zone_scale) / 2
-        ax_zone.text(waste_x, waste_y, f'{waste_rv:+.0f}',
+        waste_x = sz_x0 - chase_padding - 0.6
+        ax_zone.text(waste_x, center_y, f'{waste_rv:+.0f}',
                     fontsize=22, weight='bold', ha='center', va='center',
                     bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='black', lw=3))
         
