@@ -638,9 +638,9 @@ with tab2:
         ax_swing = fig.add_subplot(gs[0, 3])
         ax_rv = fig.add_subplot(gs[0, 4])
         
-        # === PANEL 1: Zone Diagram (Clean Design) ===
-        ax_zone.set_xlim(-2.4, 2.4)
-        ax_zone.set_ylim(0.2, 4.4)
+        # === PANEL 1: Zone Diagram (Maximized for Visual Impact) ===
+        ax_zone.set_xlim(-2.5, 2.5)
+        ax_zone.set_ylim(-0.1, 4.5)
         ax_zone.axis('off')
         ax_zone.set_aspect('equal')
         
@@ -648,47 +648,47 @@ with tab2:
         sz_width = rulebook_right - rulebook_left
         sz_height = rulebook_top - rulebook_bottom
         
-        zone_scale = 1.45  # Increased for better visibility
+        zone_scale = 1.8  # MUCH larger to fill vertical space
         center_x = 0
         
         # Title at top
-        ax_zone.text(center_x, 4.25, 'Strike Zone View', fontsize=13, weight='bold', 
+        ax_zone.text(center_x, 4.35, 'Strike Zone View', fontsize=14, weight='bold', 
                     ha='center', color='#333')
         
         # Draw from outside in for clean layering
         
         # 1. Waste zone (outermost)
-        waste_padding = 0.58
+        waste_padding = 0.62
         waste_rect = FancyBboxPatch(
             (center_x - (sz_width * zone_scale)/2 - waste_padding, 
              rulebook_bottom - waste_padding),
             sz_width * zone_scale + 2*waste_padding,
             sz_height * zone_scale + 2*waste_padding,
-            boxstyle="round,pad=0.1",
-            fc='#D3D3D3', ec='#888', lw=4, alpha=0.6
+            boxstyle="round,pad=0.12",
+            fc='#D3D3D3', ec='#888', lw=5, alpha=0.6
         )
         ax_zone.add_patch(waste_rect)
         
         # 2. Chase zone - bright yellow
-        chase_padding = 0.34
+        chase_padding = 0.38
         chase_rect = FancyBboxPatch(
             (center_x - (sz_width * zone_scale)/2 - chase_padding, 
              rulebook_bottom - chase_padding),
             sz_width * zone_scale + 2*chase_padding,
             sz_height * zone_scale + 2*chase_padding,
-            boxstyle="round,pad=0.08",
-            fc='#F9ED97', ec='black', lw=4
+            boxstyle="round,pad=0.1",
+            fc='#F9ED97', ec='black', lw=5
         )
         ax_zone.add_patch(chase_rect)
         
         # 3. Shadow zone - tan/beige
-        shadow_padding = 0.15
+        shadow_padding = 0.18
         shadow_rect = Rectangle(
             (center_x - (sz_width * zone_scale)/2 - shadow_padding,
              rulebook_bottom - shadow_padding),
             sz_width * zone_scale + 2*shadow_padding,
             sz_height * zone_scale + 2*shadow_padding,
-            fc='#F4C9A8', ec='black', lw=4
+            fc='#F4C9A8', ec='black', lw=5
         )
         ax_zone.add_patch(shadow_rect)
         
@@ -696,7 +696,7 @@ with tab2:
         sz_rect = Rectangle(
             (center_x - (sz_width * zone_scale)/2, rulebook_bottom),
             sz_width * zone_scale, sz_height * zone_scale,
-            fc='none', ec='black', lw=4.5, linestyle='--'
+            fc='none', ec='black', lw=5.5, linestyle='--'
         )
         ax_zone.add_patch(sz_rect)
         
@@ -705,7 +705,7 @@ with tab2:
         heart_width = sz_width * heart_pct * zone_scale
         heart_height = sz_height * heart_pct * zone_scale
         
-        # Center the heart zone: start at 33% from edges (100% - 34% = 66%, half of that is 33%)
+        # Center the heart zone: start at 33% from edges
         heart_offset_pct = (1.0 - heart_pct) / 2  # 0.33
         heart_x0 = center_x - heart_width/2
         heart_y0 = rulebook_bottom + (sz_height * zone_scale * heart_offset_pct)
@@ -713,42 +713,42 @@ with tab2:
         heart_rect = Rectangle(
             (heart_x0, heart_y0),
             heart_width, heart_height,
-            fc='#E8B4D4', ec='#C41E3A', lw=4.5
+            fc='#E8B4D4', ec='#C41E3A', lw=5.5
         )
         ax_zone.add_patch(heart_rect)
         
         # Get run values
         rv_dict = rv_tbl.set_index('Zone')['RV_total'].to_dict()
         
-        # Add run values with better positioning
+        # Add run values with LARGER text for bigger zone
         # Heart - centered
         heart_rv = rv_dict.get('Heart', 0)
         ax_zone.text(center_x, heart_y0 + heart_height/2, 
                     f'{heart_rv:+.0f}',
-                    fontsize=24, weight='bold', ha='center', va='center',
-                    bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='black', lw=3))
+                    fontsize=30, weight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.6', fc='white', ec='black', lw=3.5))
         
         # Shadow - top area between strike zone and shadow edge
         shadow_rv = rv_dict.get('Shadow', 0)
         shadow_y = heart_y0 + heart_height + (sz_height * zone_scale * heart_offset_pct + shadow_padding) / 2
         ax_zone.text(center_x, shadow_y, f'{shadow_rv:+.0f}',
-                    fontsize=20, weight='bold', ha='center', va='center',
-                    bbox=dict(boxstyle='round,pad=0.45', fc='white', ec='black', lw=2.5))
+                    fontsize=25, weight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.55', fc='white', ec='black', lw=3))
         
         # Chase - bottom area
         chase_rv = rv_dict.get('Chase', 0)
         chase_y = heart_y0 - (sz_height * zone_scale * heart_offset_pct + shadow_padding) / 2
         ax_zone.text(center_x, chase_y, f'{chase_rv:+.0f}',
-                    fontsize=20, weight='bold', ha='center', va='center',
-                    bbox=dict(boxstyle='round,pad=0.45', fc='white', ec='black', lw=2.5))
+                    fontsize=25, weight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.55', fc='white', ec='black', lw=3))
         
         # Waste - left side
         waste_rv = rv_dict.get('Waste', 0)
-        waste_x = center_x - (sz_width * zone_scale)/2 - chase_padding - 0.6
+        waste_x = center_x - (sz_width * zone_scale)/2 - chase_padding - 0.65
         waste_y = rulebook_bottom + (sz_height * zone_scale) / 2
         ax_zone.text(waste_x, waste_y, f'{waste_rv:+.0f}',
-                    fontsize=18, weight='bold', ha='center', va='center',
-                    bbox=dict(boxstyle='round,pad=0.4', fc='white', ec='black', lw=2.5))
+                    fontsize=22, weight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='black', lw=3))
         
         # === PANEL 2: Shared Zone Labels ===
         ax_labels.set_xlim(0, 1)
