@@ -809,6 +809,17 @@ with tab2:
         
         swing_y_positions = [3.0, 2.05, 1.1, 0.15]  # Match label positions
         
+        # Add subtle alternating background shading for zones
+        for i in range(len(zones_ordered)):
+            if i % 2 == 0:  # Alternate shading
+                ax_swing.axhspan(swing_y_positions[i] - 0.42, swing_y_positions[i] + 0.42,
+                               facecolor='#f8f8f8', alpha=0.5, zorder=0, edgecolor='none')
+        
+        # Add horizontal dividing lines between zones
+        for i in range(len(zones_ordered) - 1):
+            divider_y = (swing_y_positions[i] + swing_y_positions[i + 1]) / 2
+            ax_swing.axhline(y=divider_y, color='#999', linewidth=1.5, linestyle='-', alpha=0.4, zorder=1)
+        
         for i, zone in enumerate(zones_ordered):
             zone_data = rv_tbl[rv_tbl['Zone'] == zone].iloc[0]
             y_pos = swing_y_positions[i]
@@ -817,11 +828,11 @@ with tab2:
             take_pct = zone_data['Take%']
             
             # Swing bar (left side)
-            ax_swing.barh(y_pos, swing_pct, height=0.6, left=0,
+            ax_swing.barh(y_pos, swing_pct, height=0.55, left=0,
                          color='#5DADE2', alpha=0.9, edgecolor='black', lw=2, zorder=2)
             
             # Take bar (right side)
-            ax_swing.barh(y_pos, take_pct, height=0.6, left=swing_pct,
+            ax_swing.barh(y_pos, take_pct, height=0.55, left=swing_pct,
                          color='#E67E22', alpha=0.9, edgecolor='black', lw=2, zorder=2)
             
             # Add percentages inside bars
@@ -837,7 +848,7 @@ with tab2:
                 league_zone = league_tbl[league_tbl['Zone'] == zone]
                 if not league_zone.empty:
                     league_swing = league_zone.iloc[0]['Swing%']
-                    ax_swing.plot([league_swing, league_swing], [y_pos - 0.35, y_pos + 0.35],
+                    ax_swing.plot([league_swing, league_swing], [y_pos - 0.32, y_pos + 0.32],
                                  color='#333', lw=3.5, linestyle='--', alpha=0.8, zorder=4)
         
         # League average legend
@@ -907,12 +918,12 @@ with tab2:
             
             # Swing RV bar with gradient effect (stronger color)
             swing_color = '#27AE60' if swing_rv > 0 else '#E74C3C'
-            ax_rv.barh(y_pos + 0.26, swing_rv, height=0.44,
+            ax_rv.barh(y_pos + 0.24, swing_rv, height=0.4,
                       color=swing_color, alpha=0.95, edgecolor='black', lw=2, zorder=2)
             
             # Take RV bar with gradient effect (stronger color)
             take_color = '#27AE60' if take_rv > 0 else '#E74C3C'
-            ax_rv.barh(y_pos - 0.26, take_rv, height=0.44,
+            ax_rv.barh(y_pos - 0.24, take_rv, height=0.4,
                       color=take_color, alpha=0.95, edgecolor='black', lw=2, zorder=2)
             
             # Add league reference lines if available
@@ -923,11 +934,11 @@ with tab2:
                     league_take_rv = league_zone.iloc[0]['RV_take']
                     
                     # Swing reference line
-                    ax_rv.plot([league_swing_rv, league_swing_rv], [y_pos + 0.04, y_pos + 0.48],
+                    ax_rv.plot([league_swing_rv, league_swing_rv], [y_pos + 0.04, y_pos + 0.44],
                              color='#666', lw=2.5, linestyle=':', alpha=0.7, zorder=3)
                     
                     # Take reference line  
-                    ax_rv.plot([league_take_rv, league_take_rv], [y_pos - 0.48, y_pos - 0.04],
+                    ax_rv.plot([league_take_rv, league_take_rv], [y_pos - 0.44, y_pos - 0.04],
                              color='#666', lw=2.5, linestyle=':', alpha=0.7, zorder=3)
             
             # Add values with smart positioning
@@ -940,7 +951,7 @@ with tab2:
                 text_color = 'black'
                 text_x = swing_rv + (3 if swing_rv >= 0 else -3)
             
-            ax_rv.text(text_x, y_pos + 0.26, f'{swing_rv:+.0f}',
+            ax_rv.text(text_x, y_pos + 0.24, f'{swing_rv:+.0f}',
                       fontsize=14, weight='bold', va='center',
                       ha='center', color=text_color, zorder=4)
             
@@ -953,7 +964,7 @@ with tab2:
                 text_color = 'black'
                 text_x = take_rv + (3 if take_rv >= 0 else -3)
             
-            ax_rv.text(text_x, y_pos - 0.26, f'{take_rv:+.0f}',
+            ax_rv.text(text_x, y_pos - 0.24, f'{take_rv:+.0f}',
                       fontsize=14, weight='bold', va='center',
                       ha='center', color=text_color, zorder=4)
         
