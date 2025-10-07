@@ -740,7 +740,7 @@ with tab2:
         
         # === PANEL 2: Shared Zone Labels ===
         ax_labels.set_xlim(0, 1)
-        ax_labels.set_ylim(0, 4)
+        ax_labels.set_ylim(-0.5, 4)
         ax_labels.axis('off')
         
         # Title space
@@ -763,7 +763,7 @@ with tab2:
         
         # === PANEL 3: Pitch Frequency ===
         ax_freq.set_xlim(0, 1)
-        ax_freq.set_ylim(0, 4)
+        ax_freq.set_ylim(-0.5, 4)
         ax_freq.axis('off')
         
         ax_freq.text(0.5, 3.8, 'Pitch\nFrequency', fontsize=14, weight='bold', 
@@ -791,20 +791,20 @@ with tab2:
                         fontsize=13, ha='center', weight='bold')
         
         # Total pitches note at bottom
-        ax_freq.text(0.5, -0.15, f'{total_pitches} pitches',
+        ax_freq.text(0.5, -0.35, f'{total_pitches} pitches',
                     fontsize=10, ha='center', style='italic', color='#666')
         
         # === PANEL 4: Swing/Take Percentages ===
         ax_swing.set_xlim(-5, 105)
-        ax_swing.set_ylim(0, 4)
+        ax_swing.set_ylim(-0.5, 4)
         ax_swing.set_xticks([0, 25, 50, 75, 100])
         ax_swing.set_xticklabels(['0%', '25%', '50%', '75%', '100%'], fontsize=11)
         ax_swing.set_yticks([])
         ax_swing.spines['left'].set_visible(False)
         ax_swing.spines['top'].set_visible(False)
         ax_swing.spines['right'].set_visible(False)
-        ax_swing.spines['bottom'].set_position(('data', 0))
-        ax_swing.set_xlabel('Swing                                        Take', fontsize=13, weight='bold', labelpad=8)
+        ax_swing.spines['bottom'].set_position(('data', -0.3))
+        ax_swing.set_xlabel('Swing                                        Take', fontsize=13, weight='bold', labelpad=10)
         ax_swing.set_title('Swing / Take', fontsize=15, weight='bold', pad=18, color='#333')
         
         swing_y_positions = [3.0, 2.05, 1.1, 0.15]  # Match label positions
@@ -878,7 +878,7 @@ with tab2:
         x_max = np.ceil(x_max / 5) * 5
         
         ax_rv.set_xlim(x_min, x_max)
-        ax_rv.set_ylim(0, 4)
+        ax_rv.set_ylim(-0.5, 4)
         
         # Add subtle gridlines at intervals
         gridline_interval = 10 if (x_max - x_min) > 40 else 5
@@ -892,9 +892,9 @@ with tab2:
         ax_rv.spines['left'].set_visible(False)
         ax_rv.spines['top'].set_visible(False)
         ax_rv.spines['right'].set_visible(False)
-        ax_rv.spines['bottom'].set_position(('data', 0))
+        ax_rv.spines['bottom'].set_position(('data', -0.3))
         ax_rv.tick_params(axis='x', labelsize=11)
-        ax_rv.set_xlabel('Runs', fontsize=13, weight='bold', labelpad=8)
+        ax_rv.set_xlabel('Runs', fontsize=13, weight='bold', labelpad=10)
         ax_rv.set_title('Run Value', fontsize=15, weight='bold', pad=18, color='#333')
         
         # Plot bars and values
@@ -973,7 +973,7 @@ with tab2:
         # Add swing/take runs totals at bottom
         swing_total_text = f'{totals["sw_total"]:+.0f} Swing Runs'
         take_total_text = f'{totals["tk_total"]:+.0f} Take Runs'
-        ax_rv.text(0.5, -0.15, f'{swing_total_text}   |   {take_total_text}',
+        ax_rv.text(0.5, -0.22, f'{swing_total_text}   |   {take_total_text}',
                   transform=ax_rv.transAxes, fontsize=13, weight='bold', ha='center',
                   bbox=dict(boxstyle='round,pad=0.6', facecolor='#f5f5f5', 
                            edgecolor='#333', linewidth=2))
@@ -983,7 +983,7 @@ with tab2:
         title_text = f'{batter_name} ({handedness}) {year}\n{totals["total_rv"]:+.0f} Run Value'
         fig.suptitle(title_text, fontsize=20, weight='bold', y=0.97)
         
-        plt.tight_layout(rect=[0, 0.03, 1, 0.94])
+        plt.tight_layout(rect=[0, 0.08, 1, 0.94])
         return fig
 
     # --------------------------
