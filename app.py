@@ -122,16 +122,23 @@ pitch_type_markers = {
 st.title("OMBSB Hitting App")
 
 # ----- Strike-zone geometry (feet) -----
-rulebook_left  = -0.83083
-rulebook_right =  0.83083
-rulebook_bottom = 1.5
-rulebook_top    = 3.3775
+rulebook_left  = -0.83083   # -10" 
+rulebook_right =  0.83083   # +10"
+rulebook_bottom = 1.5       # 18"
+rulebook_top    = 3.3775    # 40.53"
 
-# “Shadow” ring (your larger box around the zone)
-shadow_left   = -0.99750
-shadow_right  =  0.99750
-shadow_bottom =  1.377
-shadow_top    =  3.5
+# Shadow zone: 133% of strike zone (extends 33% beyond on each side)
+shadow_multiplier = 1.33
+sz_width = rulebook_right - rulebook_left  # 1.66166 ft
+sz_height = rulebook_top - rulebook_bottom  # 1.8775 ft
+
+shadow_extend_width = (sz_width * shadow_multiplier - sz_width) / 2  # 0.2742 ft = 3.29"
+shadow_extend_height = (sz_height * shadow_multiplier - sz_height) / 2  # 0.3098 ft = 3.72"
+
+shadow_left   = rulebook_left - shadow_extend_width    # -1.105 ft = -13.26"
+shadow_right  = rulebook_right + shadow_extend_width   # +1.105 ft = +13.26"
+shadow_bottom = rulebook_bottom - shadow_extend_height # 1.19 ft = 14.28"
+shadow_top    = rulebook_top + shadow_extend_height    # 3.687 ft = 44.25"
 
 
 # Create tabs
@@ -213,10 +220,10 @@ with tab1:
         strike_zone_width = 17 / 12
         strike_zone_params = {'x_start': -strike_zone_width / 2, 'y_start': 1.5, 'width': strike_zone_width, 'height': 3.3775 - 1.5}
         heart_zone_params = {
-            'x_start': strike_zone_params['x_start'] + strike_zone_params['width'] * 0.25,
-            'y_start': strike_zone_params['y_start'] + strike_zone_params['height'] * 0.25,
-            'width': strike_zone_params['width'] * 0.5,
-            'height': strike_zone_params['height'] * 0.5
+            'x_start': strike_zone_params['x_start'] + strike_zone_params['width'] * 0.33,
+            'y_start': strike_zone_params['y_start'] + strike_zone_params['height'] * 0.33,
+            'width': strike_zone_params['width'] * 0.34,
+            'height': strike_zone_params['height'] * 0.34
         }
         shadow_zone_params = {'x_start': -strike_zone_width / 2 - 0.2, 'y_start': 1.3, 'width': strike_zone_width + 0.4, 'height': 3.6 - 1.3}
 
@@ -565,7 +572,7 @@ with tab2:
     
         in_shadow = (x >= shadow_left) & (x <= shadow_right) & (y >= shadow_bottom) & (y <= shadow_top)
         in_heart  = (x >= heart_x0) & (x <= heart_x1) & (y >= heart_y0) & (y <= heart_y1)
-        in_chase  = (x >= -1.75) & (x <= 1.75) & (y >= 1.0) & (y <= 4.0)
+        in_chase = (x >= -1.75) & (x <= 1.75) & (y >= 1.0) & (y <= 4.0)
     
         zone = np.full(len(df), "Waste", dtype=object)
         zone[in_chase]  = "Chase"
