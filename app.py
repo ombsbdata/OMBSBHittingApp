@@ -565,14 +565,15 @@ with tab2:
     
         zone_w = (rulebook_right - rulebook_left)
         zone_h = (rulebook_top - rulebook_bottom)
-        heart_x0 = rulebook_left  + 0.25 * zone_w
-        heart_x1 = rulebook_right - 0.25 * zone_w
-        heart_y0 = rulebook_bottom + 0.25 * zone_h
-        heart_y1 = rulebook_top    - 0.25 * zone_h
+        # Heart zone: 33% to 67% of strike zone (middle 34%)
+        heart_x0 = rulebook_left  + 0.33 * zone_w
+        heart_x1 = rulebook_right - 0.33 * zone_w
+        heart_y0 = rulebook_bottom + 0.33 * zone_h
+        heart_y1 = rulebook_top    - 0.33 * zone_h
     
         in_shadow = (x >= shadow_left) & (x <= shadow_right) & (y >= shadow_bottom) & (y <= shadow_top)
         in_heart  = (x >= heart_x0) & (x <= heart_x1) & (y >= heart_y0) & (y <= heart_y1)
-        in_chase = (x >= -1.75) & (x <= 1.75) & (y >= 1.0) & (y <= 4.0)
+        in_chase  = (x >= -1.75) & (x <= 1.75) & (y >= 1.0) & (y <= 4.0)
     
         zone = np.full(len(df), "Waste", dtype=object)
         zone[in_chase]  = "Chase"
@@ -638,8 +639,8 @@ with tab2:
         ax_rv = fig.add_subplot(gs[0, 4])
         
         # === PANEL 1: Zone Diagram (Clean Design) ===
-        ax_zone.set_xlim(-2.3, 2.3)
-        ax_zone.set_ylim(0.2, 4.3)
+        ax_zone.set_xlim(-2.4, 2.4)
+        ax_zone.set_ylim(0.2, 4.4)
         ax_zone.axis('off')
         ax_zone.set_aspect('equal')
         
@@ -647,103 +648,103 @@ with tab2:
         sz_width = rulebook_right - rulebook_left
         sz_height = rulebook_top - rulebook_bottom
         
-        zone_scale = 1.35
+        zone_scale = 1.4  # Slightly larger for better visibility
         center_x = 0
         
         # Title at top
-        ax_zone.text(center_x, 4.15, 'Strike Zone View', fontsize=13, weight='bold', 
+        ax_zone.text(center_x, 4.25, 'Strike Zone View', fontsize=13, weight='bold', 
                     ha='center', color='#333')
         
         # Draw from outside in for clean layering
         
-        # 1. Waste zone (outermost)
-        waste_padding = 0.55
+        # 1. Waste zone (outermost) - lighter gray
+        waste_padding = 0.6
         waste_rect = FancyBboxPatch(
             (center_x - (sz_width * zone_scale)/2 - waste_padding, 
              rulebook_bottom - waste_padding),
             sz_width * zone_scale + 2*waste_padding,
             sz_height * zone_scale + 2*waste_padding,
             boxstyle="round,pad=0.1",
-            fc=zone_colors['Waste'], ec='#888', lw=3.5, alpha=0.4
+            fc='#E5E5E5', ec='#999', lw=4, alpha=0.7
         )
         ax_zone.add_patch(waste_rect)
         
-        # 2. Chase zone
-        chase_padding = 0.32
+        # 2. Chase zone - brighter yellow
+        chase_padding = 0.35
         chase_rect = FancyBboxPatch(
             (center_x - (sz_width * zone_scale)/2 - chase_padding, 
              rulebook_bottom - chase_padding),
             sz_width * zone_scale + 2*chase_padding,
             sz_height * zone_scale + 2*chase_padding,
             boxstyle="round,pad=0.08",
-            fc=zone_colors['Chase'], ec='black', lw=3.5
+            fc='#FFF4CC', ec='black', lw=4
         )
         ax_zone.add_patch(chase_rect)
         
-        # 3. Shadow zone
-        shadow_padding = 0.13
+        # 3. Shadow zone - warmer tan/orange
+        shadow_padding = 0.16
         shadow_rect = Rectangle(
             (center_x - (sz_width * zone_scale)/2 - shadow_padding,
              rulebook_bottom - shadow_padding),
             sz_width * zone_scale + 2*shadow_padding,
             sz_height * zone_scale + 2*shadow_padding,
-            fc=zone_colors['Shadow'], ec='black', lw=3.5
+            fc='#F5D6B3', ec='black', lw=4
         )
         ax_zone.add_patch(shadow_rect)
         
-        # 4. Strike zone (dashed outline)
+        # 4. Strike zone (dashed outline) - thicker
         sz_rect = Rectangle(
             (center_x - (sz_width * zone_scale)/2, rulebook_bottom),
             sz_width * zone_scale, sz_height * zone_scale,
-            fc='none', ec='black', lw=4, linestyle='--'
+            fc='none', ec='black', lw=4.5, linestyle='--'
         )
         ax_zone.add_patch(sz_rect)
         
-        # 5. Heart zone (innermost)
-        heart_width = sz_width * 0.5 * zone_scale
-        heart_height = sz_height * 0.5 * zone_scale
+        # 5. Heart zone (innermost) - vibrant pink with red border
+        heart_width = sz_width * 0.34 * zone_scale
+        heart_height = sz_height * 0.34 * zone_scale
         heart_x0 = center_x - heart_width/2
-        heart_y0 = rulebook_bottom + (sz_height * zone_scale * 0.25)
+        heart_y0 = rulebook_bottom + (sz_height * zone_scale * 0.33)
         
         heart_rect = Rectangle(
             (heart_x0, heart_y0),
             heart_width, heart_height,
-            fc=zone_colors['Heart'], ec='#C41E3A', lw=4
+            fc='#F5A9D0', ec='#C41E3A', lw=4.5
         )
         ax_zone.add_patch(heart_rect)
         
         # Get run values
         rv_dict = rv_tbl.set_index('Zone')['RV_total'].to_dict()
         
-        # Add ONLY run values to the zones - no zone labels here
-        # Heart
+        # Add ONLY run values to the zones - better positioned
+        # Heart - centered in heart zone
         heart_rv = rv_dict.get('Heart', 0)
         ax_zone.text(center_x, heart_y0 + heart_height/2, 
                     f'{heart_rv:+.0f}',
+                    fontsize=26, weight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.6', fc='white', ec='black', lw=3))
+        
+        # Shadow - positioned in top shadow area
+        shadow_rv = rv_dict.get('Shadow', 0)
+        shadow_center_y = rulebook_bottom + sz_height * zone_scale - shadow_padding/2
+        ax_zone.text(center_x, shadow_center_y, f'{shadow_rv:+.0f}',
                     fontsize=22, weight='bold', ha='center', va='center',
                     bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='black', lw=2.5))
         
-        # Shadow
-        shadow_rv = rv_dict.get('Shadow', 0)
-        shadow_y = rulebook_top + shadow_padding + 0.05
-        ax_zone.text(center_x, shadow_y, f'{shadow_rv:+.0f}',
-                    fontsize=20, weight='bold', ha='center', va='bottom',
-                    bbox=dict(boxstyle='round,pad=0.45', fc='white', ec='black', lw=2.5))
-        
-        # Chase
+        # Chase - positioned at bottom
         chase_rv = rv_dict.get('Chase', 0)
-        chase_y = rulebook_bottom - shadow_padding - chase_padding + 0.08
-        ax_zone.text(center_x, chase_y, f'{chase_rv:+.0f}',
-                    fontsize=20, weight='bold', ha='center', va='top',
-                    bbox=dict(boxstyle='round,pad=0.45', fc='white', ec='black', lw=2.5))
+        chase_center_y = rulebook_bottom - shadow_padding/2
+        ax_zone.text(center_x, chase_center_y, f'{chase_rv:+.0f}',
+                    fontsize=22, weight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='black', lw=2.5))
         
-        # Waste - positioned to the side
+        # Waste - positioned to the left side
         waste_rv = rv_dict.get('Waste', 0)
-        waste_x = center_x - (sz_width * zone_scale)/2 - chase_padding - 0.55
+        waste_x = center_x - (sz_width * zone_scale)/2 - chase_padding - 0.6
         waste_y = (rulebook_bottom + rulebook_top) / 2
         ax_zone.text(waste_x, waste_y, f'{waste_rv:+.0f}',
-                    fontsize=18, weight='bold', ha='center', va='center',
-                    bbox=dict(boxstyle='round,pad=0.4', fc='white', ec='black', lw=2))
+                    fontsize=20, weight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.45', fc='white', ec='black', lw=2.5))
         
         # === PANEL 2: Shared Zone Labels ===
         ax_labels.set_xlim(0, 1)
