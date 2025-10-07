@@ -648,7 +648,7 @@ with tab2:
         sz_width = rulebook_right - rulebook_left
         sz_height = rulebook_top - rulebook_bottom
         
-        zone_scale = 1.4  # Slightly larger for better visibility
+        zone_scale = 1.45  # Increased for better visibility
         center_x = 0
         
         # Title at top
@@ -657,42 +657,42 @@ with tab2:
         
         # Draw from outside in for clean layering
         
-        # 1. Waste zone (outermost) - lighter gray
-        waste_padding = 0.6
+        # 1. Waste zone (outermost)
+        waste_padding = 0.58
         waste_rect = FancyBboxPatch(
             (center_x - (sz_width * zone_scale)/2 - waste_padding, 
              rulebook_bottom - waste_padding),
             sz_width * zone_scale + 2*waste_padding,
             sz_height * zone_scale + 2*waste_padding,
             boxstyle="round,pad=0.1",
-            fc='#E5E5E5', ec='#999', lw=4, alpha=0.7
+            fc='#D3D3D3', ec='#888', lw=4, alpha=0.6
         )
         ax_zone.add_patch(waste_rect)
         
-        # 2. Chase zone - brighter yellow
-        chase_padding = 0.35
+        # 2. Chase zone - bright yellow
+        chase_padding = 0.34
         chase_rect = FancyBboxPatch(
             (center_x - (sz_width * zone_scale)/2 - chase_padding, 
              rulebook_bottom - chase_padding),
             sz_width * zone_scale + 2*chase_padding,
             sz_height * zone_scale + 2*chase_padding,
             boxstyle="round,pad=0.08",
-            fc='#FFF4CC', ec='black', lw=4
+            fc='#F9ED97', ec='black', lw=4
         )
         ax_zone.add_patch(chase_rect)
         
-        # 3. Shadow zone - warmer tan/orange
-        shadow_padding = 0.16
+        # 3. Shadow zone - tan/beige
+        shadow_padding = 0.15
         shadow_rect = Rectangle(
             (center_x - (sz_width * zone_scale)/2 - shadow_padding,
              rulebook_bottom - shadow_padding),
             sz_width * zone_scale + 2*shadow_padding,
             sz_height * zone_scale + 2*shadow_padding,
-            fc='#F5D6B3', ec='black', lw=4
+            fc='#F4C9A8', ec='black', lw=4
         )
         ax_zone.add_patch(shadow_rect)
         
-        # 4. Strike zone (dashed outline) - thicker
+        # 4. Strike zone (dashed outline)
         sz_rect = Rectangle(
             (center_x - (sz_width * zone_scale)/2, rulebook_bottom),
             sz_width * zone_scale, sz_height * zone_scale,
@@ -700,51 +700,55 @@ with tab2:
         )
         ax_zone.add_patch(sz_rect)
         
-        # 5. Heart zone (innermost) - vibrant pink with red border
-        heart_width = sz_width * 0.34 * zone_scale
-        heart_height = sz_height * 0.34 * zone_scale
+        # 5. Heart zone - 34% of strike zone, properly centered
+        heart_pct = 0.34
+        heart_width = sz_width * heart_pct * zone_scale
+        heart_height = sz_height * heart_pct * zone_scale
+        
+        # Center the heart zone: start at 33% from edges (100% - 34% = 66%, half of that is 33%)
+        heart_offset_pct = (1.0 - heart_pct) / 2  # 0.33
         heart_x0 = center_x - heart_width/2
-        heart_y0 = rulebook_bottom + (sz_height * zone_scale * 0.33)
+        heart_y0 = rulebook_bottom + (sz_height * zone_scale * heart_offset_pct)
         
         heart_rect = Rectangle(
             (heart_x0, heart_y0),
             heart_width, heart_height,
-            fc='#F5A9D0', ec='#C41E3A', lw=4.5
+            fc='#E8B4D4', ec='#C41E3A', lw=4.5
         )
         ax_zone.add_patch(heart_rect)
         
         # Get run values
         rv_dict = rv_tbl.set_index('Zone')['RV_total'].to_dict()
         
-        # Add ONLY run values to the zones - better positioned
-        # Heart - centered in heart zone
+        # Add run values with better positioning
+        # Heart - centered
         heart_rv = rv_dict.get('Heart', 0)
         ax_zone.text(center_x, heart_y0 + heart_height/2, 
                     f'{heart_rv:+.0f}',
-                    fontsize=26, weight='bold', ha='center', va='center',
-                    bbox=dict(boxstyle='round,pad=0.6', fc='white', ec='black', lw=3))
+                    fontsize=24, weight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='black', lw=3))
         
-        # Shadow - positioned in top shadow area
+        # Shadow - top area between strike zone and shadow edge
         shadow_rv = rv_dict.get('Shadow', 0)
-        shadow_center_y = rulebook_bottom + sz_height * zone_scale - shadow_padding/2
-        ax_zone.text(center_x, shadow_center_y, f'{shadow_rv:+.0f}',
-                    fontsize=22, weight='bold', ha='center', va='center',
-                    bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='black', lw=2.5))
-        
-        # Chase - positioned at bottom
-        chase_rv = rv_dict.get('Chase', 0)
-        chase_center_y = rulebook_bottom - shadow_padding/2
-        ax_zone.text(center_x, chase_center_y, f'{chase_rv:+.0f}',
-                    fontsize=22, weight='bold', ha='center', va='center',
-                    bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='black', lw=2.5))
-        
-        # Waste - positioned to the left side
-        waste_rv = rv_dict.get('Waste', 0)
-        waste_x = center_x - (sz_width * zone_scale)/2 - chase_padding - 0.6
-        waste_y = (rulebook_bottom + rulebook_top) / 2
-        ax_zone.text(waste_x, waste_y, f'{waste_rv:+.0f}',
+        shadow_y = heart_y0 + heart_height + (sz_height * zone_scale * heart_offset_pct + shadow_padding) / 2
+        ax_zone.text(center_x, shadow_y, f'{shadow_rv:+.0f}',
                     fontsize=20, weight='bold', ha='center', va='center',
                     bbox=dict(boxstyle='round,pad=0.45', fc='white', ec='black', lw=2.5))
+        
+        # Chase - bottom area
+        chase_rv = rv_dict.get('Chase', 0)
+        chase_y = heart_y0 - (sz_height * zone_scale * heart_offset_pct + shadow_padding) / 2
+        ax_zone.text(center_x, chase_y, f'{chase_rv:+.0f}',
+                    fontsize=20, weight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.45', fc='white', ec='black', lw=2.5))
+        
+        # Waste - left side
+        waste_rv = rv_dict.get('Waste', 0)
+        waste_x = center_x - (sz_width * zone_scale)/2 - chase_padding - 0.6
+        waste_y = rulebook_bottom + (sz_height * zone_scale) / 2
+        ax_zone.text(waste_x, waste_y, f'{waste_rv:+.0f}',
+                    fontsize=18, weight='bold', ha='center', va='center',
+                    bbox=dict(boxstyle='round,pad=0.4', fc='white', ec='black', lw=2.5))
         
         # === PANEL 2: Shared Zone Labels ===
         ax_labels.set_xlim(0, 1)
@@ -924,15 +928,13 @@ with tab2:
             swing_rv = zone_data['RV_swing']
             take_rv = zone_data['RV_take']
             
-            # Swing RV bar with gradient effect (stronger color)
-            swing_color = '#27AE60' if swing_rv > 0 else '#E74C3C'
+            # Swing RV bar - BLUE to match Swing/Take panel
             ax_rv.barh(y_pos + 0.24, swing_rv, height=0.4,
-                      color=swing_color, alpha=0.95, edgecolor='black', lw=2, zorder=2)
+                      color='#5DADE2', alpha=0.9, edgecolor='black', lw=2, zorder=2)
             
-            # Take RV bar with gradient effect (stronger color)
-            take_color = '#27AE60' if take_rv > 0 else '#E74C3C'
+            # Take RV bar - ORANGE to match Swing/Take panel
             ax_rv.barh(y_pos - 0.24, take_rv, height=0.4,
-                      color=take_color, alpha=0.95, edgecolor='black', lw=2, zorder=2)
+                      color='#E67E22', alpha=0.9, edgecolor='black', lw=2, zorder=2)
             
             # Add league reference lines if available
             if league_tbl is not None:
@@ -949,44 +951,50 @@ with tab2:
                     ax_rv.plot([league_take_rv, league_take_rv], [y_pos - 0.44, y_pos - 0.04],
                              color='#666', lw=2.5, linestyle=':', alpha=0.7, zorder=3)
             
-            # Add values with smart positioning
+            # Add values - COLOR NUMBERS ONLY (red for negative, green for positive)
             # Swing values
             bar_width_pct = abs(swing_rv) / (x_max - x_min) * 100
             if bar_width_pct > 15:  # Bar is wide enough for text inside
-                text_color = 'white'
                 text_x = swing_rv / 2
             else:  # Bar too narrow, put text outside
-                text_color = 'black'
                 text_x = swing_rv + (3 if swing_rv >= 0 else -3)
+            
+            # Color based on value: green if positive, red if negative
+            number_color = '#27AE60' if swing_rv > 0 else '#E74C3C'
             
             ax_rv.text(text_x, y_pos + 0.24, f'{swing_rv:+.0f}',
                       fontsize=14, weight='bold', va='center',
-                      ha='center', color=text_color, zorder=4)
+                      ha='center', color=number_color, zorder=4)
             
             # Take values
             bar_width_pct = abs(take_rv) / (x_max - x_min) * 100
             if bar_width_pct > 15:  # Bar is wide enough for text inside
-                text_color = 'white'
                 text_x = take_rv / 2
             else:  # Bar too narrow, put text outside
-                text_color = 'black'
                 text_x = take_rv + (3 if take_rv >= 0 else -3)
+            
+            # Color based on value: green if positive, red if negative
+            number_color = '#27AE60' if take_rv > 0 else '#E74C3C'
             
             ax_rv.text(text_x, y_pos - 0.24, f'{take_rv:+.0f}',
                       fontsize=14, weight='bold', va='center',
-                      ha='center', color=text_color, zorder=4)
+                      ha='center', color=number_color, zorder=4)
         
-        # Enhanced legend
+        # Enhanced legend - updated to show bar colors and number meaning
         from matplotlib.patches import Patch
         from matplotlib.lines import Line2D
         legend_elements = [
             Patch(facecolor='#5DADE2', edgecolor='black', label='Swing', alpha=0.9),
-            Patch(facecolor='#E67E22', edgecolor='black', label='Take', alpha=0.9)
+            Patch(facecolor='#E67E22', edgecolor='black', label='Take', alpha=0.9),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='#27AE60', 
+                   markersize=8, label='Positive', linestyle=''),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='#E74C3C', 
+                   markersize=8, label='Negative', linestyle='')
         ]
         if league_tbl is not None:
-            legend_elements.append(Line2D([0], [0], color='#666', lw=2.5, linestyle=':', label='League Avg'))
+            legend_elements.insert(2, Line2D([0], [0], color='#666', lw=2.5, linestyle=':', label='League Avg'))
         
-        ax_rv.legend(handles=legend_elements, loc='upper right', fontsize=11, 
+        ax_rv.legend(handles=legend_elements, loc='upper right', fontsize=10, 
                     frameon=True, fancybox=True, shadow=True, ncol=2 if league_tbl is None else 3)
         
         # Add swing/take runs totals at bottom
