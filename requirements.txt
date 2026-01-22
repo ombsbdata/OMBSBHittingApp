@@ -2,7 +2,7 @@ matplotlib
 pandas
 seaborn
 plotly
-streamlit
+streamlit>=1.32.0
 numpy
 gdown
 altair == 4.2.2
