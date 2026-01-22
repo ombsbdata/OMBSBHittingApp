@@ -5,3 +5,4 @@ plotly
 streamlit
 numpy
 gdown
+altair == 4.2.2
