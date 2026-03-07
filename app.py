@@ -148,19 +148,59 @@ with tab1:
     # Create columns for better layout control
     col1, col2, col3 = st.columns([2, 2, 1])
 
-    # Get unique dates for selection
-    unique_dates = sorted(data['Date'].unique()) if 'Date' in data.columns else []
+    # Build game options dropdown (Game X vs TEAM (Date) for Reg games)
+    def build_game_options(df):
+        options = {}
+        has_game_num = "game_num" in df.columns and df["game_num"].notna().any()
+        has_uid      = "GameUID" in df.columns
 
-    # Automatically select the most recent date upon app launch
+        if has_game_num:
+            id_cols = ["Date", "game_num"]
+            if has_uid:
+                id_cols.append("GameUID")
+            if "PitcherTeam" in df.columns:
+                id_cols.append("PitcherTeam")
+
+            reg = (
+                df[df["game_num"].notna()]
+                .drop_duplicates(subset=(["GameUID"] if has_uid else ["Date"]))
+                [id_cols]
+                .sort_values("game_num")
+            )
+
+            for _, row in reg.iterrows():
+                opp   = row["PitcherTeam"] if "PitcherTeam" in row.index else "OPP"
+                label = f"Game {int(row['game_num'])} vs {opp} ({row['Date']})"
+                uid   = row["GameUID"] if has_uid else None
+                options[label] = (row["Date"], uid)
+
+        # Non-Reg games or fallback: plain dates not already covered
+        reg_dates = {v[0] for v in options.values()}
+        for d in sorted(df["Date"].unique()):
+            if d not in reg_dates:
+                options[d] = (d, None)
+
+        return options
+
+    game_options = build_game_options(data)
+    game_labels  = list(game_options.keys())
+
     with col1:
-        if unique_dates:
-            default_date = max(unique_dates)  # Most recent date
-            selected_date = st.selectbox("Select a Date", options=unique_dates, index=unique_dates.index(default_date))
+        if game_labels:
+            selected_label = st.selectbox("Select a Game", options=game_labels, index=len(game_labels) - 1)
+            selected_date, selected_uid = game_options[selected_label]
         else:
-            selected_date = None
+            selected_label = None
+            selected_date  = None
+            selected_uid   = None
 
-    # Filter the data based on the selected date first
-    filtered_data = data[data['Date'] == selected_date] if selected_date else data
+    # Filter by game (date + UID when available)
+    if selected_date:
+        filtered_data = data[data["Date"] == selected_date]
+        if selected_uid is not None and "GameUID" in filtered_data.columns:
+            filtered_data = filtered_data[filtered_data["GameUID"] == selected_uid]
+    else:
+        filtered_data = data
 
     # Get unique batters from the **filtered** data
     unique_batters = sorted(filtered_data['Batter'].unique()) if not filtered_data.empty else []
@@ -353,7 +393,7 @@ with tab1:
                 y_position -= 0.04
 
         # Add the main title to the figure
-        fig.suptitle(f"{selected_batter} Report for {selected_date}", fontsize=title_fontsize, weight='bold')
+        fig.suptitle(f"{selected_batter} Report — {selected_label}", fontsize=title_fontsize, weight='bold')
 
         # --- Compute Postgame Stats ---
         whiffs = filtered_data['PitchCall'].eq('StrikeSwinging').sum()
