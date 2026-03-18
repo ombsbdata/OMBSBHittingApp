@@ -68,7 +68,7 @@ st.markdown("""
 file_path = 'Fall_2025_wRV_with_stuff.csv'
 data = pd.read_csv(file_path, low_memory=False)
 data = data[data['BatterTeam'] == 'OLE_REB']
-data = data[data['game_type'] == 'Reg']
+data = data[data['game_type'].isin(['Reg', 'LBP'])]
 
 # Load the Ole Miss logo
 logo_path = 'OMBSB_Analytics_logo-removebg-preview.png'
