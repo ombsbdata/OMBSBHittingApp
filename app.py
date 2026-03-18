@@ -149,38 +149,46 @@ with tab1:
     # Create columns for better layout control
     col1, col2, col3 = st.columns([2, 2, 1])
 
-    # Build game options dropdown (Game X vs TEAM (Date) for Reg games)
-    def build_game_options(df):
+        # Build game options dropdown (Game X vs TEAM (Date) for Reg games)
+        def build_game_options(df):
         options = {}
         has_game_num = "game_num" in df.columns and df["game_num"].notna().any()
         has_uid      = "GameUID" in df.columns
-
+    
+        entries = []  # list of (date_str, label, value)
+    
         if has_game_num:
             id_cols = ["Date", "game_num"]
             if has_uid:
                 id_cols.append("GameUID")
             if "PitcherTeam" in df.columns:
                 id_cols.append("PitcherTeam")
-
+    
             reg = (
                 df[df["game_num"].notna()]
                 .drop_duplicates(subset=(["GameUID"] if has_uid else ["Date"]))
                 [id_cols]
                 .sort_values("game_num")
             )
-
+    
             for _, row in reg.iterrows():
                 opp   = row["PitcherTeam"] if "PitcherTeam" in row.index else "OPP"
                 label = f"Game {int(row['game_num'])} vs {opp} ({row['Date']})"
                 uid   = row["GameUID"] if has_uid else None
-                options[label] = (row["Date"], uid)
-
-        # Non-Reg games or fallback: plain dates not already covered
-        reg_dates = {v[0] for v in options.values()}
-        for d in sorted(df["Date"].unique()):
+                entries.append((row["Date"], label, (row["Date"], uid)))
+    
+        # Add LBP / fallback dates not already covered by a Reg entry
+        reg_dates = {e[0] for e in entries}
+        for d in df["Date"].unique():
             if d not in reg_dates:
-                options[d] = (d, None)
-
+                entries.append((d, d, (d, None)))
+    
+        # Sort everything by date
+        entries.sort(key=lambda x: x[0])
+    
+        for _, label, value in entries:
+            options[label] = value
+    
         return options
 
     game_options = build_game_options(data)
