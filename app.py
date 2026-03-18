@@ -150,7 +150,7 @@ with tab1:
     col1, col2, col3 = st.columns([2, 2, 1])
 
         # Build game options dropdown (Game X vs TEAM (Date) for Reg games)
-        def build_game_options(df):
+    def build_game_options(df):
         options = {}
         has_game_num = "game_num" in df.columns and df["game_num"].notna().any()
         has_uid      = "GameUID" in df.columns
