@@ -65,8 +65,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Load the CSV data
-file_path = 'Fall_2025_wRV_with_stuff.csv'
-data = pd.read_csv(file_path, low_memory=False)
+GDRIVE_FILE_ID = "1GdMWrFcn02NV8r2eN8evIHPzdhE42D9Y"
+
+@st.cache_data(ttl=3600)
+def load_data():
+    url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
+    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+        gdown.download(url, tmp.name, quiet=True)
+        return pd.read_csv(tmp.name, low_memory=False)
+
+data = load_data()
 data = data[data['BatterTeam'] == 'OLE_REB']
 data = data[data['game_type'].isin(['Reg', 'LBP'])]
 
