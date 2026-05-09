@@ -82,8 +82,8 @@ data = data[data['game_type'].isin(['Reg', 'LBP'])]
 logo_path = 'OMBSB_Analytics_logo-removebg-preview.png'
 logo_img = mpimg.imread(logo_path)
 
-# Standardize AutoPitchType values to ensure consistency
-data['AutoPitchType'] = data['AutoPitchType'].str.strip().str.capitalize()
+# Standardize TaggedPitchType values to ensure consistency
+data['TaggedPitchType'] = data['TaggedPitchType'].str.strip().str.capitalize()
 
 # Ensure the 'Date' column is standardized to a single format (YYYY-MM-DD) and drop invalid rows
 if 'Date' in data.columns:
@@ -119,7 +119,7 @@ pitch_call_legend_labels = {
     'HitByPitch': 'Hit By Pitch'
 }
 
-# Define marker styles for AutoPitchType
+# Define marker styles for TaggedPitchType
 pitch_type_markers = {
     'Fastball': 'o',
     'Curveball': 's',
@@ -322,19 +322,19 @@ with tab1:
                     y=[row['PlateLocHeight']],
                     hue=[row['PitchCall']],
                     palette=pitch_call_palette,
-                    marker=pitch_type_markers.get(row['AutoPitchType'], 'o'),
+                    marker=pitch_type_markers.get(row['TaggedPitchType'], 'o'),
                     s=scatter_size,
                     legend=False,
                     ax=ax
                 )
                 
-                offset = -0.05 if row['AutoPitchType'] == 'Slider' else 0
+                offset = -0.05 if row['TaggedPitchType'] == 'Slider' else 0
                 pitch_num_fontsize = 10 if print_mode else 8
                 ax.text(row['PlateLocSide'], row['PlateLocHeight'] + offset, f"{int(row['PitchofPA'])}",
                     color='white', fontsize=pitch_num_fontsize, ha='center', va='center', weight='bold')
 
                 pitch_speed = f"{round(row['RelSpeed'], 1)} MPH"
-                pitch_type = row['AutoPitchType']
+                pitch_type = row['TaggedPitchType']
 
                 # Extract values for the last pitch
                 if row.name == pa_data.index[-1]:  # Check if it's the last pitch in PA
